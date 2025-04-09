@@ -1,0 +1,32 @@
+{
+  "production": [
+    {
+      "key": "SHOPEE_APP_ID",
+      "value": "18332550549"
+    },
+    {
+      "key": "SHOPEE_APP_SECRET",
+      "value": "2RCBBT4W4WEOUI6FMTRVMEGYZOSMOKM2"
+    },
+    {
+      "key": "SHOPEE_REDIRECT_URL",
+      "value": "https://your-vercel-app.vercel.app/api/auth/callback"
+    },
+    {
+      "key": "SHOPEE_SHOP_ID",
+      "value": "600000"
+    },
+    {
+      "key": "SHOPEE_ACCESS_TOKEN",
+      "value": "c09222e3fc40ffb25fc947f738b1abf1"
+    },
+    {
+      "key": "SHOPEE_AFFILIATE_API_URL",
+      "value": "https://open-api.affiliate.shopee.com.br/graphql"
+    },
+    {
+      "key": "TOKEN_ENCRYPTION_KEY",
+      "value": "1ec78484fcab68c1112446114a7cdef7"
+    }
+  ]
+}
