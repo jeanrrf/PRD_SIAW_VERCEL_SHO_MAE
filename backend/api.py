@@ -325,5 +325,10 @@ def search_shopee_products():
         logger.error(f"Error in search_shopee_products: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/health')
+def health_check():
+    """Endpoint para verificar se a API está funcionando"""
+    return jsonify({"status": "ok", "timestamp": datetime.now().isoformat()})
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)

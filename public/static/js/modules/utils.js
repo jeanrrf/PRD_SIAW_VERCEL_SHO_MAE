@@ -1,4 +1,4 @@
-export const API_URL = 'http://localhost:8001';
+export const API_URL = '';  // URL vazia para caminhos relativos à raiz
 
 export const formatters = {
     currency: (value) => {
@@ -66,7 +66,10 @@ export const dom = {
 export const api = {
     async get(endpoint) {
         try {
-            const response = await fetch(`${API_URL}${endpoint}`);
+            // Garantir que endpoint comece com /
+            if (!endpoint.startsWith('/')) endpoint = '/' + endpoint;
+
+            const response = await fetch(`${endpoint}`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -79,7 +82,10 @@ export const api = {
 
     async post(endpoint, data) {
         try {
-            const response = await fetch(`${API_URL}${endpoint}`, {
+            // Garantir que endpoint comece com /
+            if (!endpoint.startsWith('/')) endpoint = '/' + endpoint;
+
+            const response = await fetch(`${endpoint}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -264,11 +270,11 @@ function createLinkStatusIndicator(stats) {
     container.prepend(indicator);
 }
 
-async function waitForBackend(url, timeout = 30000) {
+async function waitForBackend(timeout = 30000) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
         try {
-            const response = await fetch(url);
+            const response = await fetch('/api/health');
             if (response.ok) {
                 console.log("Backend is ready.");
                 return true;
@@ -282,16 +288,18 @@ async function waitForBackend(url, timeout = 30000) {
     return false;
 }
 
-// Example usage in your frontend initialization
-waitForBackend("http://localhost:8001").then(isReady => {
-    if (!isReady) {
-        alert("Backend server is not available. Please try again later.");
-    }
-});
+// Modificar para usar apenas se estivermos em ambiente de desenvolvimento
+if (window.location.hostname === 'localhost') {
+    waitForBackend().then(isReady => {
+        if (!isReady) {
+            console.warn("Backend server is not available. Some features may not work.");
+        }
+    });
+}
 
 export const fetchCategories = async () => {
     try {
-        const response = await fetch(`${API_URL}/categories`);
+        const response = await fetch(`/api/categories`);
         if (!response.ok) {
             throw new Error(`Erro ao buscar categorias: ${response.status}`);
         }
@@ -304,7 +312,7 @@ export const fetchCategories = async () => {
 
 export const fetchProducts = async () => {
     try {
-        const response = await fetch(`${API_URL}/db/products`);
+        const response = await fetch(`/api/products`);
         if (!response.ok) {
             throw new Error(`Erro ao buscar produtos: ${response.status}`);
         }

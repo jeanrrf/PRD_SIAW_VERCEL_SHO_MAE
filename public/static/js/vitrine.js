@@ -3,9 +3,9 @@
  * Script principal para gerenciar a exibição de produtos e categorias na vitrine
  */
 
-// URL da API atualizada para os endpoints corretos
-const DB_API_URL = 'http://localhost:8001';
-const API_URL = 'http://localhost:5000';
+// URL da API atualizada para usar caminhos relativos
+const DB_API_URL = '/api';
+const API_URL = '/api';
 
 // Cache para armazenar dados de categorias e evitar requisições repetidas
 const cache = {
@@ -62,7 +62,7 @@ async function fetchProducts(forceRefresh = false) {
         }
 
         console.log('Buscando produtos da API...');
-        const response = await axios.get(`${API_URL}/api/products`);
+        const response = await axios.get(`${API_URL}/products`);
         const products = response.data || [];
         
         if (products.length === 0) {
@@ -172,7 +172,7 @@ async function fetchCategories() {
         if (cache.categories) return cache.categories;
 
         console.log('Buscando categorias da API...');
-        const response = await axios.get(`${API_URL}/api/categories`);
+        const response = await axios.get(`${API_URL}/categories`);
         const categories = response.data || [];
 
         if (!categories.length) {
