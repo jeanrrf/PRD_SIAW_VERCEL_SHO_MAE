@@ -20,6 +20,8 @@
 		"workbench.editor.closeOnFileDelete": true,
 		"workbench.editor.enablePreview": true,
 		"workbench.editor.enablePreviewFromQuickOpen": true,
-		"workbench.editor.showIcons": true
+		"workbench.editor.showIcons": true,
+		"python-envs.defaultEnvManager": "ms-python.python:venv",
+		"python-envs.pythonProjects": []
 	}
 }
