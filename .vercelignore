@@ -4,7 +4,8 @@ __pycache__
 .env.local
 venv
 .git
-.gitignore
+.github
+node_modules
 run.py
 setup.py
 *.log
