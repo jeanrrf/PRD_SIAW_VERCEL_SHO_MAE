@@ -42,7 +42,7 @@ print(f"Usando Python: {PYTHON_EXECUTABLE}")
 def serve_frontend():
     # Configurar o servidor HTTP
     PORT = 8000
-    DIRECTORY = os.path.join(os.getcwd(), "frontend")  # Garantir caminho absoluto
+    DIRECTORY = os.path.join(os.getcwd(), "frontend")  # Garantir caminho absoluto "public"
 
     class Handler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
@@ -236,7 +236,7 @@ def check_setup():
 
 def check_js_dependencies():
     """Verifica se há dependências JavaScript que devem ser baixadas"""
-    frontend_js_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "static", "js", "libs")
+    frontend_js_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public", "static", "js", "libs")
     
     # Criar diretórios para bibliotecas JS se não existirem
     os.makedirs(frontend_js_dir, exist_ok=True)
