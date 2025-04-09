@@ -6,7 +6,5 @@ venv
 .git
 .github
 node_modules
-run.py
-setup.py
 *.log
 *.sqlite
