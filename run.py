@@ -52,6 +52,12 @@ def serve_frontend():
             # Adicionar logs mais claros para depuração
             print("[Servidor Frontend]", format % args)
 
+        def send_error(self, code, message=None, explain=None):
+            if code == 404:
+                print(f"[ERRO] Arquivo não encontrado: {self.path}")
+                self.path = "/fallback.html"  # Redirect to a fallback page
+            super().send_error(code, message, explain)
+
     with socketserver.TCPServer(("", PORT), Handler) as httpd:
         print(f"Servidor frontend rodando em http://localhost:{PORT}")
         httpd.serve_forever()
