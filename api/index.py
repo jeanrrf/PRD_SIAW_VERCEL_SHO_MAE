@@ -9,3 +9,4 @@ from backend.api import app
 
 # Este arquivo serve como entry point para a Vercel
 # O handler app é usado pela Vercel para receber e processar as requisições HTTP
+handler = app
