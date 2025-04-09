@@ -15,12 +15,12 @@ from datetime import datetime
 import logging
 from .datetime_utils import safe_fromisoformat
 
-# Configuração de logging
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 # Caminho do banco de dados SQLite
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data', 'products.db')
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'shopee-analytics.db')
 
 # Verificar se o diretório existe, se não, criar
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -45,9 +45,10 @@ def get_db_connection():
     """Cria uma conexão com o banco de dados SQLite"""
     # Na Vercel, usamos o modo somente leitura, já que o filesystem é read-only
     if os.environ.get('VERCEL_ENV'):
-        conn = sqlite3.connect(DB_PATH, uri=True, check_same_thread=False)
+        # URI mode é necessário para conexões somente leitura
+        conn = sqlite3.connect(DB_PATH, uri=True)
     else:
-        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -124,17 +125,9 @@ async def save_product(product_data, affiliate_data=None):
     finally:
         db.close()
 
-def get_products(filters=None, sort_by='created_at', limit=None):
+async def get_products(filters=None, sort_by='created_at', limit=None):
     """
     Obtém produtos do banco de dados com filtros opcionais
-    
-    Args:
-        filters: Dicionário de filtros (ex: {'name': 'termo de busca'})
-        sort_by: Campo pelo qual ordenar resultados
-        limit: Número máximo de resultados
-        
-    Returns:
-        Lista de produtos
     """
     try:
         conn = get_db_connection()
@@ -173,7 +166,7 @@ def get_products(filters=None, sort_by='created_at', limit=None):
         return products
     
     except Exception as e:
-        print(f"Erro ao buscar produtos: {e}")
+        logger.error(f"Erro ao buscar produtos: {e}")
         return []
     finally:
         if conn:
