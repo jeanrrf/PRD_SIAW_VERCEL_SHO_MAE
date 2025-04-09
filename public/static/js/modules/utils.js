@@ -299,11 +299,8 @@ if (window.location.hostname === 'localhost') {
 
 export const fetchCategories = async () => {
     try {
-        const response = await fetch(`/api/categories`);
-        if (!response.ok) {
-            throw new Error(`Erro ao buscar categorias: ${response.status}`);
-        }
-        return await response.json();
+        // Use the api.get method for consistency with other API calls
+        return await api.get('/api/categories');
     } catch (error) {
         console.error('Erro ao buscar categorias:', error);
         throw error;
@@ -312,11 +309,8 @@ export const fetchCategories = async () => {
 
 export const fetchProducts = async () => {
     try {
-        const response = await fetch(`/api/products`);
-        if (!response.ok) {
-            throw new Error(`Erro ao buscar produtos: ${response.status}`);
-        }
-        return await response.json();
+        // Use the api.get method for consistency with other API calls
+        return await api.get('/api/products');
     } catch (error) {
         console.error('Erro ao buscar produtos:', error);
         throw error;
