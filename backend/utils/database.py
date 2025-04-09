@@ -4,21 +4,29 @@ Database utility module.
 This module contains functions for creating and managing database sessions,
 saving and updating products, and searching for products with filters and sorting.
 """
+import os
+import sqlite3
+import json
+from typing import Dict, List, Optional, Any
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy import create_engine
 from ..models import Base, Product
-import json
 from datetime import datetime
 import logging
-import sqlite3
 from .datetime_utils import safe_fromisoformat
 
 # Configuração de logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+# Caminho do banco de dados SQLite
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'data', 'products.db')
+
+# Verificar se o diretório existe, se não, criar
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
 # Database engine configuration (SQLite)
-engine = create_engine('sqlite:///shopee-analytics.db')
+engine = create_engine(f'sqlite:///{DB_PATH}')
 # Create a local session to interact with the database
 SessionLocal = sessionmaker(bind=engine)
 
@@ -34,12 +42,13 @@ def get_db() -> Session:
         db.close()
 
 def get_db_connection():
-    """
-    Returns a direct SQLite connection for use with functions that need a raw connection.
-    This function is used by API endpoints that require direct SQL queries.
-    """
-    conn = sqlite3.connect('shopee-analytics.db')
-    conn.row_factory = sqlite3.Row  # This enables accessing columns by name
+    """Cria uma conexão com o banco de dados SQLite"""
+    # Na Vercel, usamos o modo somente leitura, já que o filesystem é read-only
+    if os.environ.get('VERCEL_ENV'):
+        conn = sqlite3.connect(DB_PATH, uri=True, check_same_thread=False)
+    else:
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
     return conn
 
 async def save_product(product_data, affiliate_data=None):
@@ -115,57 +124,57 @@ async def save_product(product_data, affiliate_data=None):
     finally:
         db.close()
 
-async def get_products(limit: int = None, offset: int = 0, search: str = None):
+def get_products(filters=None, sort_by='created_at', limit=None):
+    """
+    Obtém produtos do banco de dados com filtros opcionais
+    
+    Args:
+        filters: Dicionário de filtros (ex: {'name': 'termo de busca'})
+        sort_by: Campo pelo qual ordenar resultados
+        limit: Número máximo de resultados
+        
+    Returns:
+        Lista de produtos
+    """
     try:
-        # Build the query based on parameters
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
         query = "SELECT * FROM products"
         params = []
         
-        # Add search condition if provided
-        if search:
-            query += " WHERE (name LIKE ? OR product_name LIKE ? OR category_name LIKE ?)"
-            search_param = f"%{search}%"
-            params.extend([search_param, search_param, search_param])
-        
-        # Add limit and offset
-        if limit is not None:
-            query += f" LIMIT ?"
-            params.append(limit)
+        # Aplicar filtros se existirem
+        if filters:
+            where_clauses = []
             
-        if offset > 0:
-            query += f" OFFSET ?"
-            params.append(offset)
+            if 'name' in filters:
+                where_clauses.append("name LIKE ?")
+                params.append(f"%{filters['name']}%")
+                
+            if where_clauses:
+                query += " WHERE " + " AND ".join(where_clauses)
         
-        logging.getLogger(__name__).info(f"Query antes da execução: {query}")
+        # Ordenação
+        query += f" ORDER BY {sort_by}"
         
-        # Get database connection and execute query
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        if params:
-            cursor.execute(query, params)
-        else:
-            cursor.execute(query)
+        # Limite
+        if limit:
+            query += f" LIMIT {limit}"
             
+        cursor.execute(query, params)
         rows = cursor.fetchall()
         
-        # Get column names
-        column_names = [description[0] for description in cursor.description]
-        
+        # Converter para lista de dicionários
         products = []
         for row in rows:
-            # Convert row to dictionary using column names
-            product = dict(zip(column_names, row))
+            product_dict = {key: row[key] for key in row.keys()}
+            products.append(product_dict)
             
-            # Safely parse datetime fields
-            for date_field in ['period_start_time', 'period_end_time', 'created_at', 'updated_at']:
-                if date_field in product:
-                    product[date_field] = safe_fromisoformat(product[date_field])
-            
-            products.append(product)
-        
-        conn.close()
         return products
+    
     except Exception as e:
-        logging.getLogger(__name__).error(f"Error getting products: {str(e)}")
-        # Return empty list instead of raising error to keep application functioning
+        print(f"Erro ao buscar produtos: {e}")
         return []
+    finally:
+        if conn:
+            conn.close()

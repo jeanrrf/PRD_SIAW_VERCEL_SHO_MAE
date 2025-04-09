@@ -7,43 +7,14 @@
     }
   },
   "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "frontend/**/*",
-      "use": "@vercel/static"
-    }
+    { "src": "api/index.py", "use": "@vercel/python" },
+    { "src": "frontend/**", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/static/(.*)",
-      "dest": "frontend/static/$1"
-    },
-    {
-      "src": "/(.*)\\.js",
-      "dest": "frontend/$1.js"
-    },
-    {
-      "src": "/(.*)\\.css",
-      "dest": "frontend/$1.css"
-    },
-    {
-      "src": "/(.*)\\.html",
-      "dest": "frontend/$1.html"
-    },
-    {
-      "src": "/",
-      "dest": "frontend/vitrine.html"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "frontend/$1"
-    }
-  ]
+    { "src": "/api/(.*)", "dest": "api/index.py" },
+    { "src": "/(.*)", "dest": "frontend/$1" }
+  ],
+  "env": {
+    "PYTHONUNBUFFERED": "1"
+  }
 }

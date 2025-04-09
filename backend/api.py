@@ -5,12 +5,11 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.shopee_affiliate_auth import graphql_query, GraphQLRequest
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
+from flask import Flask, request, jsonify
+import werkzeug
 from typing import Optional, Dict, Any, List
-from fastapi.responses import JSONResponse
 
-# Patch para compatibilidade com Werkzeug em Python 3.13
+# Patch para compatibilidade com Werkzeug
 try:
     import werkzeug.urls
     if not hasattr(werkzeug.urls, 'url_quote'):
@@ -33,16 +32,15 @@ from backend.utils.database import save_product, get_products, get_db_connection
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+app = Flask(__name__)
 
 # Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
 
 # Cache para armazenar resultados temporariamente
 cache = {
@@ -58,16 +56,6 @@ def identify_hot_products(products, min_sales=50, recent_weight=0.6, commission_
     1. Volume de vendas recentes
     2. Taxa de comissão (maior é melhor)
     3. Relação preço/valor (desconto e avaliações)
-    
-    Args:
-        products: Lista de produtos da API da Shopee
-        min_sales: Vendas mínimas para considerar um produto como potencialmente "em alta"
-        recent_weight: Peso para o fator de vendas recentes
-        commission_weight: Peso para o fator de comissão
-        price_value_weight: Peso para o fator de preço/valor
-    
-    Returns:
-        Lista de produtos em alta, ordenados pelo score
     """
     if not products:
         return []
@@ -120,56 +108,56 @@ def identify_hot_products(products, min_sales=50, recent_weight=0.6, commission_
     
     return hot_products
 
-@app.get('/api/products')
-async def get_all_products():
+@app.route('/api/products')
+def get_all_products():
     """Get all products from the database"""
     try:
-        products = await get_products()
-        return products
+        products = get_products()
+        return jsonify(products)
     except Exception as e:
         logger.error(f"Error in get_all_products: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"error": str(e)}), 500
 
-@app.get('/api/products/search')
-async def search_products(
-    page: Optional[int] = 1,
-    limit: Optional[int] = 10,
-    sortType: Optional[int] = 2,
-    keyword: Optional[str] = ''
-):
+@app.route('/api/products/search')
+def search_products():
     """Search products in database with filters"""
     try:
+        page = request.args.get('page', 1, type=int)
+        limit = request.args.get('limit', 10, type=int)
+        sortType = request.args.get('sortType', 2, type=int)
+        keyword = request.args.get('keyword', '')
+        
         filters = {}
         if keyword:
             filters['name'] = keyword
         
         sort_by = 'created_at' if sortType == 2 else 'price'
         
-        products = await get_products(filters=filters, sort_by=sort_by, limit=limit)
+        products = get_products(filters=filters, sort_by=sort_by, limit=limit)
         
-        return {
+        return jsonify({
             "products": products,
             "page": page,
             "limit": limit,
             "total": len(products),
             "hasNextPage": False  # Simplified pagination
-        }
+        })
     except Exception as e:
         logger.error(f"Error in search_products: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({"error": str(e)}), 500
 
-@app.post('/api/update-categories')
-async def update_categories(request: Request):
+@app.route('/api/update-categories', methods=['POST'])
+def update_categories():
     """Endpoint para atualizar categorias no banco de dados"""
     try:
-        data = await request.json()
+        data = request.get_json()
         
         if not data or 'products' not in data:
-            return JSONResponse(content={'success': False, 'message': 'Dados inválidos. A requisição deve conter uma lista de produtos.'}, status_code=400)
+            return jsonify({'success': False, 'message': 'Dados inválidos. A requisição deve conter uma lista de produtos.'}), 400
             
         products = data['products']
         if not isinstance(products, list):
-            return JSONResponse(content={'success': False, 'message': 'O campo products deve ser uma lista.'}, status_code=400)
+            return jsonify({'success': False, 'message': 'O campo products deve ser uma lista.'}), 400
             
         db_connector = get_db_connection()
         
@@ -212,7 +200,7 @@ async def update_categories(request: Request):
                 failed_count += 1
                 logger.error(f"Erro ao atualizar categoria do produto {product.get('itemId')}: {str(e)}")
                 
-        return JSONResponse(content={
+        return jsonify({
             'success': True,
             'message': f'Processamento concluído. {updated_count} produtos atualizados com sucesso. {failed_count} falhas.',
             'updated_count': updated_count,
@@ -221,31 +209,31 @@ async def update_categories(request: Request):
     
     except Exception as e:
         logger.error(f"Erro ao processar requisição de atualização de categorias: {str(e)}")
-        return JSONResponse(content={'success': False, 'message': f'Erro ao processar requisição: {str(e)}'}, status_code=500)
+        return jsonify({'success': False, 'message': f'Erro ao processar requisição: {str(e)}'}), 500
 
-@app.get('/api/categories')
-async def get_categories():
+@app.route('/api/categories')
+def get_categories():
     """Endpoint para obter as categorias do arquivo CATEGORIA.json"""
     try:
         categories_path = os.path.join(os.path.dirname(__file__), 'CATEGORIA.json')
         
         if not os.path.exists(categories_path):
-            return JSONResponse(content={'success': False, 'message': 'Arquivo de categorias não encontrado.'}, status_code=404)
+            return jsonify({'success': False, 'message': 'Arquivo de categorias não encontrado.'}), 404
             
         with open(categories_path, 'r', encoding='utf-8') as f:
             categories = json.load(f)
             
-        return categories
+        return jsonify(categories)
     
     except Exception as e:
         logger.error(f"Erro ao carregar categorias: {str(e)}")
-        return JSONResponse(content={'success': False, 'message': f'Erro ao carregar categorias: {str(e)}'}, status_code=500)
+        return jsonify({'success': False, 'message': f'Erro ao carregar categorias: {str(e)}'}), 500
 
-@app.post('/api/search')
-async def search_shopee_products(request: Request):
+@app.route('/api/search', methods=['POST'])
+def search_shopee_products():
     """Search products in Shopee Affiliate API with keyword"""
     try:
-        data = await request.json()
+        data = request.get_json()
         keyword = data.get('keyword', '')
         sort_type = data.get('sortType', 2)  # Default: Sales
         limit = data.get('limit', 20)
@@ -255,7 +243,7 @@ async def search_shopee_products(request: Request):
         include_recommendations = data.get('includeRecommendations', False)
         
         if not keyword:
-            return JSONResponse(content={'error': 'Keyword is required'}, status_code=400)
+            return jsonify({'error': 'Keyword is required'}), 400
             
         # Preparar a consulta para a API Shopee
         query = GraphQLRequest().search_products(
@@ -265,10 +253,10 @@ async def search_shopee_products(request: Request):
         )
         
         # Executar a consulta na API Shopee
-        result = await graphql_query(query)
+        result = graphql_query(query)
         
         if not result or 'data' not in result:
-            return JSONResponse(content={'error': 'Failed to fetch data from Shopee API'}, status_code=500)
+            return jsonify({'error': 'Failed to fetch data from Shopee API'}), 500
             
         # Processar os resultados
         products = []
@@ -320,7 +308,7 @@ async def search_shopee_products(request: Request):
             # Usar o primeiro produto para gerar recomendações
             first_product = products[0]
             rec_query = GraphQLRequest().get_similar_products(first_product.get('itemId'))
-            rec_result = await graphql_query(rec_query)
+            rec_result = graphql_query(rec_query)
             
             if rec_result and 'data' in rec_result and 'similarProducts' in rec_result['data']:
                 recommendations = rec_result['data']['similarProducts'].get('products', [])
@@ -328,219 +316,14 @@ async def search_shopee_products(request: Request):
         # Identificar produtos em alta
         hot_products = identify_hot_products(products)
         
-        return {
+        return jsonify({
             "products": products,
             "recommendations": recommendations,
             "hotProducts": hot_products
-        }
+        })
     except Exception as e:
         logger.error(f"Error in search_shopee_products: {str(e)}")
-        return JSONResponse(content={'error': str(e)}, status_code=500)
-
-@app.post('/api/trending')
-async def get_trending_products(request: Request):
-    """Identify and return hot/trending products from Shopee API"""
-    try:
-        data = await request.json()
-        keywords = data.get('keywords', [])  # Lista de palavras-chave para pesquisar
-        category_ids = data.get('categoryIds', [])  # Lista de IDs de categorias
-        min_sales = data.get('minSales', 50)  # Vendas mínimas para considerar
-        limit_per_search = data.get('limitPerSearch', 40)  # Limite por pesquisa
-        final_limit = data.get('limit', 20)  # Limite final de produtos retornados
-        exclude_existing = data.get('excludeExisting', True)  # Excluir produtos existentes por padrão
-        
-        all_products = []
-        
-        # 1. Buscar por palavras-chave populares
-        for keyword in keywords:
-            if not keyword:
-                continue
-                
-            # Usar o endpoint de busca existente com o parâmetro para ordenar por vendas
-            query = """
-            query SearchProducts($keyword: String!, $sortType: Int!, $limit: Int!) {
-                productOfferV2(keyword: $keyword, sortType: $sortType, limit: $limit) {
-                    nodes {
-                        productName
-                        itemId
-                        commissionRate
-                        sales
-                        imageUrl
-                        shopName
-                        offerLink
-                        priceMin
-                        priceMax
-                        ratingStar
-                        priceDiscountRate
-                        productCatIds
-                    }
-                }
-            }
-            """
-            
-            variables = {
-                "keyword": keyword,
-                "sortType": 3,  # Ordenar por mais vendidos
-                "limit": limit_per_search
-            }
-            
-            graphql_request = GraphQLRequest(
-                query=query,
-                variables=variables
-            )
-            
-            result = await graphql_query(graphql_request)
-            
-            if result and 'data' in result and 'productOfferV2' in result['data']:
-                products = result['data']['productOfferV2'].get('nodes', [])
-                all_products.extend(products)
-                
-        # 2. Buscar por categorias populares (complementar às buscas por palavra-chave)
-        for category_id in category_ids:
-            # Usar GraphQL para buscar produtos por categoria
-            category_query = """
-            query ProductsByCategory($categoryId: String!, $sortType: Int!, $limit: Int!) {
-                productOfferV2(categoryId: $categoryId, sortType: $sortType, limit: $limit) {
-                    nodes {
-                        productName
-                        itemId
-                        commissionRate
-                        sales
-                        imageUrl
-                        shopName
-                        offerLink
-                        priceMin
-                        priceMax
-                        ratingStar
-                        priceDiscountRate
-                        productCatIds
-                    }
-                }
-            }
-            """
-            
-            variables = {
-                "categoryId": category_id,
-                "sortType": 3,  # Ordenar por mais vendidos
-                "limit": limit_per_search // 2  # Metade do limite por categoria
-            }
-            
-            category_request = GraphQLRequest(
-                query=category_query,
-                variables=variables
-            )
-            
-            category_result = await graphql_query(category_request)
-            
-            if category_result and 'data' in category_result and 'productOfferV2' in category_result['data']:
-                products = category_result['data']['productOfferV2'].get('nodes', [])
-                all_products.extend(products)
-                
-        # 3. Remover duplicatas (produtos que apareceram em múltiplas buscas)
-        unique_products = {}
-        for product in all_products:
-            item_id = str(product.get('itemId'))
-            # Manter apenas uma instância de cada produto (a última encontrada)
-            unique_products[item_id] = product
-            
-        all_products = list(unique_products.values())
-        
-        # 4. Se solicitado, filtrar produtos já existentes no banco de dados
-        if exclude_existing and all_products:
-            # Extrair os item_ids dos produtos
-            item_ids = list(unique_products.keys())
-            
-            db_connector = get_db_connection()
-            cursor = db_connector.cursor()
-            
-            # Verificar quais desses IDs já existem no banco de dados
-            if item_ids:
-                placeholders = ', '.join(['%s'] * len(item_ids))
-                query = f"SELECT shopee_id FROM products WHERE shopee_id IN ({placeholders})"
-                cursor.execute(query, item_ids)
-                existing_ids = {str(row[0]) for row in cursor.fetchall()}
-                
-                # Filtrar produtos existentes
-                all_products = [p for p in all_products if str(p.get('itemId')) not in existing_ids]
-            
-            cursor.close()
-            
-        # 5. Aplicar algoritmo de identificação de produtos em alta
-        hot_products = identify_hot_products(all_products, min_sales=min_sales)
-        
-        # 6. Limitar ao número final solicitado
-        hot_products = hot_products[:final_limit]
-        
-        # 7. Adicionar metadados à resposta
-        response = {
-            "products": hot_products,
-            "metadata": {
-                "totalFound": len(all_products),
-                "uniqueProducts": len(unique_products),
-                "trendingCount": len(hot_products),
-                "keywords": keywords,
-                "categories": category_ids,
-                "timestamp": datetime.now().isoformat()
-            }
-        }
-        
-        return response
-    except Exception as e:
-        logger.error(f"Error in get_trending_products: {str(e)}")
-        return JSONResponse(content={'error': str(e)}, status_code=500)
-
-@app.post('/api/repair-logs')
-async def save_repair_logs(request: Request):
-    """Endpoint para salvar os logs de reparo no arquivo repair-logs.json"""
-    try:
-        data = await request.json()
-        
-        if not data or 'repairedItems' not in data:
-            raise HTTPException(
-                status_code=400,
-                detail="Dados inválidos. A requisição deve conter 'repairedItems'."
-            )
-        
-        # Salvar no arquivo repair-logs.json
-        current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        logs_path = os.path.join(current_dir, 'repair-logs.json')
-        
-        with open(logs_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-            
-        return JSONResponse(content={'success': True, 'message': 'Logs salvos com sucesso'})
-    
-    except Exception as e:
-        logger.error(f"Erro ao salvar logs de reparo: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erro ao salvar logs: {str(e)}"
-        )
-
-@app.get('/api/repair-logs')
-async def get_repair_logs():
-    """Endpoint para obter os logs de reparo do arquivo repair-logs.json"""
-    try:
-        current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        logs_path = os.path.join(current_dir, 'repair-logs.json')
-        
-        if not os.path.exists(logs_path):
-            # Se o arquivo não existir, criar com estrutura inicial
-            with open(logs_path, 'w', encoding='utf-8') as f:
-                json.dump({"repairedItems": []}, f, indent=2, ensure_ascii=False)
-        
-        with open(logs_path, 'r', encoding='utf-8') as f:
-            logs = json.load(f)
-            
-        return logs
-        
-    except Exception as e:
-        logger.error(f"Erro ao carregar logs de reparo: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erro ao carregar logs: {str(e)}"
-        )
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    app.run(debug=True, host="0.0.0.0", port=5000)
