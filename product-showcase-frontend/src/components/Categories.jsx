@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './Categories.module.css';
 // Import React Icons
@@ -7,7 +7,7 @@ import {
     FaBaby, FaSprayCan, FaRunning, FaGamepad, FaCar, FaTools 
 } from 'react-icons/fa';
 // Import API base URL from connector
-import { API_BASE_URL } from '../api/connector';
+import { API_BASE_URL, fetchCategoryCounts } from '../api/connector';
 
 // Updated categories data with icons instead of image URLs
 const categoriesData = [
@@ -73,43 +73,74 @@ const Categories = () => {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [retryCount, setRetryCount] = useState(0);
+
+    const fetchCategoriesWithCounts = useCallback(async () => {
+        try {
+            const cachedData = localStorage.getItem('categoryCounts');
+            const cacheTimestamp = localStorage.getItem('categoryCounts_timestamp');
+            
+            if (cachedData && cacheTimestamp) {
+                const isValid = Date.now() - parseInt(cacheTimestamp) < 5 * 60 * 1000;
+                if (isValid) {
+                    const categoryCounts = JSON.parse(cachedData);
+                    setCategories(categoriesData.map(category => ({
+                        ...category,
+                        productCount: categoryCounts[category.id] || 0
+                    })));
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            const counts = await fetchCategoryCounts();
+            
+            // Update cache
+            localStorage.setItem('categoryCounts', JSON.stringify(counts));
+            localStorage.setItem('categoryCounts_timestamp', Date.now().toString());
+            
+            const categoriesWithCounts = categoriesData.map(category => ({
+                ...category,
+                productCount: counts[category.id] || 0
+            }));
+            
+            setCategories(categoriesWithCounts);
+            setError(null);
+            
+        } catch (err) {
+            console.error("Error fetching category counts:", err);
+            setError(`Falha ao carregar dados: ${err.message}`);
+            
+            if (retryCount < 3) {
+                const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+                setTimeout(() => {
+                    setRetryCount(prev => prev + 1);
+                }, retryDelay);
+            } else {
+                // Use cached data as fallback if available
+                const cachedData = localStorage.getItem('categoryCounts');
+                if (cachedData) {
+                    const categoryCounts = JSON.parse(cachedData);
+                    setCategories(categoriesData.map(category => ({
+                        ...category,
+                        productCount: categoryCounts[category.id] || 0
+                    })));
+                } else {
+                    // Ultimate fallback
+                    setCategories(categoriesData.map(category => ({
+                        ...category,
+                        productCount: 0
+                    })));
+                }
+            }
+        } finally {
+            setLoading(false);
+        }
+    }, [retryCount]);
 
     useEffect(() => {
-        const fetchCategoriesWithCounts = async () => {
-            try {
-                // Fetch product counts for each category
-                const response = await fetch(`${API_BASE_URL}/categories/counts`);
-                if (!response.ok) {
-                    throw new Error(`API error: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                const categoryCounts = data.counts || {};
-                
-                // Merge counts with category data
-                const categoriesWithCounts = categoriesData.map(category => ({
-                    ...category,
-                    // Use real count from API or 0 if not available
-                    productCount: categoryCounts[category.id] || 0
-                }));
-                
-                setCategories(categoriesWithCounts);
-            } catch (err) {
-                console.error("Error fetching category counts:", err);
-                setError(err);
-                
-                // Fall back to categories without real counts
-                setCategories(categoriesData.map(category => ({
-                    ...category,
-                    productCount: 0
-                })));
-            } finally {
-                setLoading(false);
-            }
-        };
-        
         fetchCategoriesWithCounts();
-    }, []);
+    }, [fetchCategoriesWithCounts]);
 
     const handleCategoryClick = (categoryId) => {
         navigate(`/category/${categoryId}`, { state: { categoryId } });
@@ -125,10 +156,17 @@ const Categories = () => {
                     </span>
                 </h2>
                 
-                {/* Show error message if any */}
                 {error && (
                     <div className={styles.error}>
-                        Não foi possível carregar os contadores de produtos. Exibindo categorias sem contagem.
+                        <p>Erro ao carregar dados: {error}</p>
+                        {retryCount < 3 && (
+                            <button 
+                                onClick={() => setRetryCount(prev => prev + 1)}
+                                className={styles.retryButton}
+                            >
+                                Tentar novamente
+                            </button>
+                        )}
                     </div>
                 )}
                 

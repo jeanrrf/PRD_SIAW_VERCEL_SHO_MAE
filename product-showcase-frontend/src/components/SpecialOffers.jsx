@@ -1,36 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { fetchShowcaseProducts, checkDatabaseConnection } from '../api/connector';
 
 const SpecialOffers = () => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [retryCount, setRetryCount] = useState(0);
     const [debug, setDebug] = useState(null);
 
-    useEffect(() => {
-        const loadProducts = async () => {
-            try {
-                // Check database connection first
-                const dbStatus = await checkDatabaseConnection();
-                if (!dbStatus.isConnected) {
-                    throw new Error('Banco de dados indisponível');
-                }
+    const loadProducts = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
 
-                setLoading(true);
-                setError(null);
-                const products = await fetchShowcaseProducts();
-                setProducts(products || []);
-            } catch (err) {
-                console.error('Error loading products:', err);
-                setError(err.message || 'Erro ao carregar ofertas especiais');
-                setProducts([]);
-            } finally {
-                setLoading(false);
+            // Try to check database connection first
+            await checkDatabaseConnection();
+            
+            const data = await fetchShowcaseProducts();
+            setProducts(data);
+        } catch (err) {
+            console.error('Error loading products:', err);
+            setError(err.message || 'Erro ao carregar produtos');
+            
+            if (retryCount < 3) {
+                setTimeout(() => {
+                    setRetryCount(prev => prev + 1);
+                }, 1000 * Math.pow(2, retryCount));
             }
-        };
+        } finally {
+            setLoading(false);
+        }
+    }, [retryCount]);
 
+    useEffect(() => {
         loadProducts();
-    }, []);
+    }, [loadProducts]);
+
+    // Add fallback content when database is unavailable
+    if (error && error.includes('banco de dados')) {
+        return (
+            <div className="text-center p-4">
+                <p className="text-gray-600">
+                    Sistema temporariamente indisponível. 
+                    Tente novamente mais tarde.
+                </p>
+                {retryCount < 3 && (
+                    <button
+                        onClick={() => setRetryCount(prev => prev + 1)}
+                        className="mt-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
+                    >
+                        Tentar novamente
+                    </button>
+                )}
+            </div>
+        );
+    }
 
     return (
         <section id="ofertas" className="py-16 bg-gray-100">
