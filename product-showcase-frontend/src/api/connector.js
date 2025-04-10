@@ -70,25 +70,25 @@ export const fetchShowcaseProducts = async () => {
     }
 };
 
-// Add a debug function to check database connection
+// Add caching for database checks
+let dbCheckCache = null;
+let lastCheckTime = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 export const checkDatabaseConnection = async () => {
+    const now = Date.now();
+    if (dbCheckCache && (now - lastCheckTime < CACHE_DURATION)) {
+        return dbCheckCache;
+    }
+
     try {
-        console.log(`Checking database connection: ${API_BASE_URL}/debug/database`);
         const response = await fetch(`${API_BASE_URL}/debug/database`);
-        
-        if (!response.ok) {
-            throw new Error(`API Error ${response.status}`);
-        }
-        
         const data = await response.json();
-        console.log('Database check result:', data);
+        dbCheckCache = data;
+        lastCheckTime = now;
         return data;
     } catch (error) {
-        console.error('Error checking database:', error);
-        return {
-            status: 'error',
-            error: error.message,
-            message: 'Failed to connect to API. Make sure backend server is running on port 8001.'
-        };
+        console.error('Database check failed:', error);
+        throw error;
     }
 };
