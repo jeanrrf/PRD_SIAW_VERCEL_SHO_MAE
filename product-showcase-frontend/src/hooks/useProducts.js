@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchProducts } from '../api/connector';
+import { fetchProducts, fetchShowcaseProducts, fetchProductsByCategory } from '../api/connector';
 
 const useProducts = (categoryId = null) => {
     const [products, setProducts] = useState([]);

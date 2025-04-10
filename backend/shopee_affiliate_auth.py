@@ -784,7 +784,7 @@ async def get_products_by_category(category_id: str):
         conn.close()
         return products
     except Exception as e:
-        logger.error(f"Error fetching products by category {category_id}: {e}")
+        logger.error(f"Error fetching products by category {category_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/db/products/search")

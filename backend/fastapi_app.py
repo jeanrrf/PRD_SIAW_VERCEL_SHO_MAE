@@ -652,3 +652,23 @@ async def forward_to_shopee_auth(endpoint: str, request: Request):
     else:
         logger.warning(f"Endpoint not in allowed list: /{endpoint}")
         raise HTTPException(status_code=404, detail=f"Endpoint /{endpoint} not found or not allowed")
+
+from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+
+# Create an APIRouter instance
+router = APIRouter()
+
+@router.get("/products/category/{category_id}")
+async def get_products_by_category(category_id: str):
+    """Proxy to shopee_affiliate_auth.get_products_by_category"""
+    try:
+        from .shopee_affiliate_auth import get_products_by_category as get_products_by_category_from_db
+        products = await get_products_by_category_from_db(category_id)
+        return products
+    except Exception as e:
+        logger.error(f"Error proxying products by category {category_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Include the router in the main app
+app.include_router(router, prefix="/api")
