@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 // Import React Icons
 import { 
     FaLaptop, FaMobile, FaTshirt, FaUserTie, FaHome, 
@@ -68,6 +68,7 @@ const categoriesData = [
 ];
 
 const Categories = () => {
+    const navigate = useNavigate();
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -109,6 +110,10 @@ const Categories = () => {
         fetchCategoriesWithCounts();
     }, []);
 
+    const handleCategoryClick = (categoryId) => {
+        navigate(`/category/${categoryId}`, { state: { categoryId } });
+    };
+
     return (
         <section id="categorias" className="py-16 bg-gray-50">
             <div className="container mx-auto px-4">
@@ -149,10 +154,10 @@ const Categories = () => {
                             const IconComponent = category.icon;
                             
                             return (
-                                <Link 
-                                    to={`/category/${category.id}`} 
+                                <div 
                                     key={category.id}
-                                    className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden"
+                                    onClick={() => handleCategoryClick(category.id)}
+                                    className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden cursor-pointer"
                                 >
                                     <div className="p-4 flex flex-col items-center text-center">
                                         <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
@@ -163,7 +168,7 @@ const Categories = () => {
                                             {category.productCount} {category.productCount === 1 ? 'produto' : 'produtos'}
                                         </p>
                                     </div>
-                                </Link>
+                                </div>
                             );
                         })
                     )}
