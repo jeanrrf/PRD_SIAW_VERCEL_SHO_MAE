@@ -86,34 +86,17 @@ except ValueError as e:
 
 # Initialize SQLite database
 def init_db():
-    db_path = 'shopee-analytics.db'
-    
-    # Check if database file exists and log its location
-    if os.path.exists(db_path):
-        logger.info(f"SQLite database found at: {os.path.abspath(db_path)}")
-    else:
-        logger.warning(f"SQLite database not found at: {os.path.abspath(db_path)}. Will attempt to create it.")
-    
     try:
+        # Get absolute path for database
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(current_dir, 'shopee-analytics.db')
+        
+        logger.info(f"Initializing database at: {db_path}")
+        
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS offers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            offer_name TEXT,
-            commission_rate REAL,
-            image_url TEXT,
-            offer_link TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        ''')
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS categories (
-            id VARCHAR PRIMARY KEY,
-            name TEXT NOT NULL,
-            level INTEGER
-        )
-        ''')
+
+        # Create products table with all required fields
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,6 +105,7 @@ def init_db():
             price FLOAT,
             original_price FLOAT,
             category_id INTEGER,
+            category_name VARCHAR,
             shop_id INTEGER,
             stock INTEGER,
             commission_rate FLOAT,
@@ -148,30 +132,16 @@ def init_db():
         )
         ''')
         
-        # Load categories from CATEGORIA.json and populate categories table
-        try:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            categories_path = os.path.join(current_dir, 'CATEGORIA.json')
-            with open(categories_path, 'r', encoding='utf-8') as f:
-                categories = json.load(f)
-                
-            # Insert or update categories
-            for category in categories:
-                cursor.execute("""
-                    INSERT OR REPLACE INTO categories (id, name, level)
-                    VALUES (?, ?, ?)
-                """, (category['id'], category['name'], category['level']))
-                
-        except Exception as e:
-            logger.error(f"Error loading categories: {str(e)}")
-            
+        # Create index for faster queries
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_category_id ON products(category_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_created_at ON products(created_at)')
+        
+        logger.info("Database tables and indexes created successfully")
         conn.commit()
         conn.close()
-    except sqlite3.Error as e:
-        logger.error(f"SQLite error in init_db: {str(e)}")
-        raise
+        
     except Exception as e:
-        logger.error(f"Unexpected error in init_db: {str(e)}")
+        logger.error(f"Error initializing database: {str(e)}")
         raise
 
 # Initialize database

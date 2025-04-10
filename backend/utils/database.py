@@ -21,9 +21,9 @@ from .datetime_utils import safe_fromisoformat
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Caminho do banco de dados SQLite
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'shopee-analytics.db')
-logger.info(f"SQLite database path: {DB_PATH}")
+# Update database path configuration
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'shopee-analytics.db')
+logger.info(f"Using database at: {DB_PATH}")
 
 # Verificar se o diretório existe, se não, criar
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -82,23 +82,21 @@ def get_db() -> Session:
 
 @retry_on_db_error()
 def get_db_connection():
-    """Cria uma conexão com o banco de dados SQLite"""
-    # Na Vercel, usamos o modo somente leitura, já que o filesystem é read-only
-    if os.environ.get('VERCEL_ENV'):
-        try:
-            # URI mode é necessário para conexões somente leitura
-            conn = sqlite3.connect(f'file:{DB_PATH}?mode=ro&cache=shared', uri=True)
-            conn.execute("PRAGMA busy_timeout = 5000")  # Set timeout to 5s
-            conn.row_factory = sqlite3.Row
-            return conn
-        except Exception as e:
-            logger.error(f"Failed to connect to database in Vercel: {str(e)}")
-            raise
-    else:
+    """Creates a connection to the SQLite database"""
+    try:
         conn = sqlite3.connect(DB_PATH)
-        conn.execute("PRAGMA busy_timeout = 5000")
         conn.row_factory = sqlite3.Row
+        
+        # Set pragmas for better performance
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA temp_store=MEMORY")
+        conn.execute("PRAGMA cache_size=10000")
+        
         return conn
+    except Exception as e:
+        logger.error(f"Error connecting to database: {str(e)}")
+        raise
 
 async def save_product(product_data, affiliate_data=None):
     """

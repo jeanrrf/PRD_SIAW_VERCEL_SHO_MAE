@@ -507,12 +507,32 @@ async def search_shopee_products(request: SearchRequest):
 
 @app.get('/api/health')
 async def health_check():
-    """Endpoint para verificar se a API está funcionando"""
-    return {
-        "status": "ok", 
-        "timestamp": datetime.now().isoformat(),
-        "environment": os.environ.get('VERCEL_ENV', 'development')
-    }
+    """Check API and database health"""
+    try:
+        # Check database connection
+        conn = sqlite3.connect('shopee-analytics.db')
+        cursor = conn.cursor()
+        
+        # Verify products table
+        cursor.execute("SELECT count(*) FROM products")
+        count = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        return {
+            "status": "healthy",
+            "database": {
+                "connected": True,
+                "products_count": count
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }
 
 @app.get('/api/debug/database')
 async def debug_database():
@@ -572,6 +592,97 @@ async def debug_database():
             "error": str(e),
             "traceback": traceback.format_exc()
         }
+
+@app.get('/api/products/showcase')
+async def get_showcase_products():
+    """Get featured products for showcase"""
+    try:
+        # Get absolute path to database
+        db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'shopee-analytics.db')
+        logger.info(f"Attempting to connect to database at: {db_path}")
+
+        if not os.path.exists(db_path):
+            logger.error(f"Database file not found at: {db_path}")
+            raise HTTPException(
+                status_code=404,
+                detail="Database file not found"
+            )
+
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # Verify products table exists
+        cursor.execute("""
+            SELECT name 
+            FROM sqlite_master 
+            WHERE type='table' AND name='products'
+        """)
+        
+        if not cursor.fetchone():
+            logger.error("Products table does not exist in database")
+            raise HTTPException(
+                status_code=500,
+                detail="Products table not found in database"
+            )
+
+        # Get showcase products
+        cursor.execute("""
+            SELECT 
+                id, shopee_id, name, price, original_price,
+                category_id, image_url, shop_name,
+                commission_rate, offer_link, rating_star,
+                price_discount_rate, sales, created_at
+            FROM products 
+            WHERE image_url IS NOT NULL 
+                AND price > 0 
+                AND name IS NOT NULL
+            ORDER BY created_at DESC
+            LIMIT 12
+        """)
+
+        products = []
+        for row in cursor.fetchall():
+            product = dict(row)
+            
+            # Calculate discount
+            if product['original_price'] and product['price']:
+                discount = round(100 - (product['price'] / product['original_price'] * 100))
+                product['discount_percent'] = max(0, discount)
+            else:
+                product['discount_percent'] = 0
+
+            # Format price
+            product['formatted_price'] = f"R$ {product['price']:.2f}".replace('.', ',')
+            
+            products.append(product)
+
+        conn.close()
+
+        if not products:
+            logger.warning("No products found in database")
+            return {
+                "products": [],
+                "message": "No products available"
+            }
+
+        return {
+            "products": products,
+            "count": len(products)
+        }
+
+    except sqlite3.Error as e:
+        logger.error(f"Database error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Error in get_showcase_products: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 # Define routes to maintain compatibility with existing shopee_affiliate_auth.py routes
 @app.get('/{endpoint:path}')
