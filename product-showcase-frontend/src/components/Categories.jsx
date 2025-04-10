@@ -6,7 +6,7 @@ import {
     FaBaby, FaSprayCan, FaRunning, FaGamepad, FaCar, 
     FaTools, FaHeadphones, FaCamera, FaUtensils, FaBookOpen 
 } from 'react-icons/fa';
-import { fetchCategoryCounts } from '../api/connector';
+import { fetchCategoryIds } from '../api/connector';
 
 // Categorias modernizadas com ícones mais apropriados
 const categoriesData = [
@@ -33,23 +33,19 @@ const Categories = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const fetchCategoriesWithCounts = useCallback(async () => {
+    const fetchCategoriesByIds = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
-            
-            const counts = await fetchCategoryCounts();
-            
-            // Ordenar categorias por contagem de produtos (mais populares primeiro)
-            const categoriesWithCounts = categoriesData
-                .map(category => ({
-                    ...category,
-                    productCount: counts[category.id] || 0
-                }))
-                .filter(category => category.productCount > 0)
-                .sort((a, b) => b.productCount - a.productCount);
-            
-            setCategories(categoriesWithCounts);
+
+            const categoryIds = await fetchCategoryIds();
+
+            // Filtrar e mapear categorias com base nos IDs retornados
+            const filteredCategories = categoriesData.filter(category => 
+                categoryIds.includes(category.id)
+            );
+
+            setCategories(filteredCategories);
         } catch (err) {
             console.error('Erro ao carregar categorias:', err);
             setError('Não foi possível carregar as categorias. Tente novamente mais tarde.');
@@ -59,13 +55,13 @@ const Categories = () => {
     }, []);
 
     useEffect(() => {
-        fetchCategoriesWithCounts();
-    }, [fetchCategoriesWithCounts]);
+        fetchCategoriesByIds();
+    }, [fetchCategoriesByIds]);
 
     const handleCategoryClick = (categoryId) => {
-        navigate(`/category/${categoryId}`);
+        navigate(`/category/${categoryId}`); // Certifique-se de que o ID da categoria está correto
     };
-    
+
     const handleSeeAllClick = () => {
         navigate('/category/all');
     };
@@ -80,7 +76,7 @@ const Categories = () => {
                             <span className="absolute -bottom-2 left-0 w-2/3 h-1 bg-blue-500"></span>
                         </span>
                     </h2>
-                    
+
                     <button 
                         onClick={handleSeeAllClick}
                         className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors flex items-center"
@@ -93,7 +89,7 @@ const Categories = () => {
                     <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg mb-8">
                         <p>{error}</p>
                         <button 
-                            onClick={fetchCategoriesWithCounts}
+                            onClick={fetchCategoriesByIds}
                             className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
                         >
                             Tentar novamente
@@ -131,9 +127,6 @@ const Categories = () => {
                                         <category.icon size={32} style={{ color: category.color }} />
                                     </div>
                                     <h3 className="font-semibold mb-1 text-gray-800">{category.name}</h3>
-                                    <p className="text-sm text-gray-500">
-                                        {category.productCount} {category.productCount === 1 ? 'produto' : 'produtos'}
-                                    </p>
                                 </div>
                             </motion.div>
                         ))

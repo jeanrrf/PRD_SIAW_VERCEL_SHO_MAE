@@ -50,7 +50,7 @@ const CategoryPage = () => {
                 setLoading(true);
                 setError(null);
 
-                // Ensure categoryId is passed correctly to fetchProducts
+                // Certifique-se de que o categoryId está sendo passado corretamente
                 const data = await fetchProducts(categoryId === 'all' ? null : categoryId, 1, filters);
                 setProducts(data.products || []);
                 setProductCount(data.total || 0);
@@ -63,7 +63,7 @@ const CategoryPage = () => {
         };
 
         loadProducts();
-    }, [categoryId, filters]);
+    }, [categoryId, filters]); // Certifique-se de que o categoryId está no array de dependências
 
     const handleSearchSubmit = (e) => {
         e.preventDefault();

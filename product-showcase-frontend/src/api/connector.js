@@ -140,8 +140,8 @@ export const fetchProducts = async (categoryId = null, page = 1, filters = {}) =
     try {
         const params = new URLSearchParams({
             page: page.toString(),
-            limit: '1000', // Aumentar para mostrar todos os produtos
-            ...(categoryId && { category: categoryId }),
+            limit: '2000', // Aumentar para mostrar todos os produtos
+            ...(categoryId && { category: categoryId }), // Certifique-se de que o categoryId está sendo enviado
             ...(filters.sort && { sort: filters.sort }),
             ...(filters.priceRange && { price_range: filters.priceRange }),
             ...(filters.searchTerm && { search: filters.searchTerm })
@@ -155,15 +155,9 @@ export const fetchProducts = async (categoryId = null, page = 1, filters = {}) =
             throw new Error(data.detail || 'Erro ao carregar produtos');
         }
 
-        // Validate response structure
-        if (!Array.isArray(data.products)) {
-            console.error('Invalid API Response:', data);
-            throw new Error('Formato de resposta inválido');
-        }
-
         return {
             products: data.products,
-            hasMore: false, // Não precisamos de paginação já que estamos exibindo tudo
+            hasMore: false,
             total: data.total || 0
         };
     } catch (error) {
