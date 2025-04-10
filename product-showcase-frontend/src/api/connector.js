@@ -15,16 +15,27 @@ export const fetchProducts = async (categoryId = null, page = 1, filters = {}) =
         });
 
         const response = await fetch(`${API_BASE_URL}/products?${params}`);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
         const data = await response.json();
-        return data;
+
+        if (!response.ok) {
+            console.error('API Error Response:', data);
+            throw new Error(data.detail || 'Erro ao carregar produtos');
+        }
+
+        // Validate response structure
+        if (!Array.isArray(data.products)) {
+            console.error('Invalid API Response:', data);
+            throw new Error('Formato de resposta inválido');
+        }
+
+        return {
+            products: data.products,
+            hasMore: data.products.length === 24,
+            total: data.total || 0
+        };
     } catch (error) {
-        console.error('Error fetching products:', error);
-        throw error;
+        console.error('Error in fetchProducts:', error);
+        throw new Error(error.message || 'Erro ao conectar com o servidor');
     }
 };
 
@@ -56,29 +67,44 @@ export const checkApiHealth = async () => {
 
 export const fetchShowcaseProducts = async () => {
     try {
-        console.log(`Fetching products from: ${API_BASE_URL}/products`);
-        const response = await fetch(`${API_BASE_URL}/products`);
+        const response = await fetch(`${API_BASE_URL}/products/showcase`);
         
+        // Log response details for debugging
+        console.log('Showcase API Response:', {
+            status: response.status,
+            statusText: response.statusText
+        });
+
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`API Error (${response.status}): ${errorText}`);
-            throw new Error(`API Error ${response.status}: ${errorText}`);
+            const errorData = await response.json().catch(() => ({
+                detail: 'Erro no servidor'
+            }));
+            
+            console.error('Showcase API Error:', {
+                status: response.status,
+                data: errorData
+            });
+            
+            throw new Error(errorData.detail || 'Erro ao carregar produtos em destaque');
         }
-        
+
         const data = await response.json();
-        console.log('API Response:', data);
-        
-        // Check if we have data in the expected format
+
+        // Validate response structure
         if (!data || !Array.isArray(data.products)) {
-            console.warn('API response missing products array:', data);
-            return [];
+            console.error('Invalid Showcase API Response:', data);
+            throw new Error('Formato de resposta inválido');
         }
+
+        return data.products;
         
-        return data.products || [];
     } catch (error) {
-        console.error('Error fetching showcase products:', error);
-        // Return empty array instead of throwing to prevent UI crashes
-        return [];
+        console.error('Error in fetchShowcaseProducts:', error);
+        // Provide more descriptive error message
+        throw new Error(
+            error.message || 
+            'Não foi possível carregar os produtos em destaque. Por favor, tente novamente mais tarde.'
+        );
     }
 };
 

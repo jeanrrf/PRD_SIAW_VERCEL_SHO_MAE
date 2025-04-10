@@ -10,17 +10,20 @@ const SpecialOffers = () => {
     useEffect(() => {
         const loadProducts = async () => {
             try {
-                // First check database connection
+                // Check database connection first
                 const dbStatus = await checkDatabaseConnection();
-                setDebug(dbStatus);
-                
-                // Then load products
-                const data = await fetchShowcaseProducts();
-                console.log('Products loaded:', data);
-                setProducts(data);
+                if (!dbStatus.isConnected) {
+                    throw new Error('Banco de dados indisponível');
+                }
+
+                setLoading(true);
+                setError(null);
+                const products = await fetchShowcaseProducts();
+                setProducts(products || []);
             } catch (err) {
                 console.error('Error loading products:', err);
-                setError(err);
+                setError(err.message || 'Erro ao carregar ofertas especiais');
+                setProducts([]);
             } finally {
                 setLoading(false);
             }

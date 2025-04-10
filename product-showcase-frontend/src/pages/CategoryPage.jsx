@@ -15,22 +15,42 @@ const CategoryPage = () => {
         priceRange: '',
         searchTerm: ''
     });
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
 
     useEffect(() => {
-        loadProducts();
+        // Reset page when filters or category changes
+        setPage(1);
+        setProducts([]);
+        loadProducts(1);
     }, [categoryId, filters]);
 
-    const loadProducts = async () => {
+    const loadProducts = async (pageNum) => {
         try {
             setLoading(true);
             setError(null);
-            const data = await fetchProducts(categoryId, 1, filters);
-            setProducts(data.products || []);
+            const data = await fetchProducts(categoryId, pageNum, filters);
+            
+            if (pageNum === 1) {
+                setProducts(data.products || []);
+            } else {
+                setProducts(prev => [...prev, ...(data.products || [])]);
+            }
+            
+            setHasMore(data.hasMore);
         } catch (err) {
-            setError(err.message);
+            console.error('Error loading products:', err);
+            setError(err.message || 'Erro ao carregar produtos. Tente novamente mais tarde.');
+            setHasMore(false);
         } finally {
             setLoading(false);
         }
+    };
+
+    const loadMore = () => {
+        const nextPage = page + 1;
+        setPage(nextPage);
+        loadProducts(nextPage);
     };
 
     return (
@@ -73,24 +93,43 @@ const CategoryPage = () => {
 
                 {/* Products Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {loading ? (
-                        <div className="col-span-full text-center py-8">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                        </div>
-                    ) : error ? (
-                        <div className="col-span-full text-center text-red-500 py-8">
-                            {error}
-                        </div>
-                    ) : products.length === 0 ? (
-                        <div className="col-span-full text-center text-gray-500 py-8">
-                            Nenhum produto encontrado nesta categoria.
-                        </div>
-                    ) : (
-                        products.map((product) => (
-                            <ProductCard key={product.id} product={product} />
-                        ))
-                    )}
+                    {products.map((product) => (
+                        <ProductCard key={product.id} product={product} />
+                    ))}
                 </div>
+
+                {/* Loading indicator */}
+                {loading && (
+                    <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                    </div>
+                )}
+
+                {/* Error message */}
+                {error && (
+                    <div className="text-center text-red-500 py-8">
+                        {error}
+                    </div>
+                )}
+
+                {/* Empty state */}
+                {!loading && !error && products.length === 0 && (
+                    <div className="text-center text-gray-500 py-8">
+                        Nenhum produto encontrado nesta categoria.
+                    </div>
+                )}
+
+                {/* Load more button */}
+                {!loading && !error && hasMore && products.length > 0 && (
+                    <div className="text-center py-8">
+                        <button
+                            onClick={loadMore}
+                            className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 transition-colors"
+                        >
+                            Carregar Mais
+                        </button>
+                    </div>
+                )}
             </div>
         </Layout>
     );

@@ -9,12 +9,14 @@ const RecentProducts = () => {
     useEffect(() => {
         const loadProducts = async () => {
             try {
-                const data = await fetchShowcaseProducts();
-                // Apenas mostrar os produtos mais recentes (os primeiros 6)
-                setProducts(data.slice(0, 6));
+                setLoading(true);
+                setError(null);
+                const products = await fetchShowcaseProducts();
+                setProducts(products || []);
             } catch (err) {
-                setError(err);
                 console.error('Erro ao carregar produtos recentes:', err);
+                setError(err.message || 'Não foi possível carregar os produtos recentes');
+                setProducts([]);
             } finally {
                 setLoading(false);
             }
