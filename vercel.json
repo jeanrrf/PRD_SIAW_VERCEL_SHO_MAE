@@ -1,13 +1,13 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "public/**/*",
-      "use": "@vercel/static"
+    { 
+      "src": "public/**/*", 
+      "use": "@vercel/static" 
     },
-    {
-      "src": "backend/index.py",
-      "use": "@vercel/python"
+    { 
+      "src": "backend/index.py", 
+      "use": "@vercel/python" 
     }
   ],
   "routes": [
