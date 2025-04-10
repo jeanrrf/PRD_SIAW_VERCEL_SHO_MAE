@@ -652,3 +652,19 @@ async def forward_to_shopee_auth(endpoint: str, request: Request):
     else:
         logger.warning(f"Endpoint not in allowed list: /{endpoint}")
         raise HTTPException(status_code=404, detail=f"Endpoint /{endpoint} not found or not allowed")
+
+@app.get('/api/forward')
+async def forward_to_shopee_auth(request: Request):
+    try:
+        route = app.routes[0] # Get the first route that matches
+        return await route.endpoint(request)
+    except HTTPException as he:
+        # Re-raise HTTP exceptions
+        raise he
+    except Exception as e:
+        logger.error(f"Error forwarding request: {str(e)}")
+        # Return a more graceful error response
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error processing request"}
+        )

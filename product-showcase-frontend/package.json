@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
+    "start": "DISABLE_NEW_JSX_TRANSFORM=true react-scripts start",
+    "build": "DISABLE_NEW_JSX_TRANSFORM=true react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -14,16 +14,10 @@
     "react-icons": "^5.5.0",
     "react-router-dom": "^6.15.0",
     "react-scripts": "5.0.0",
-    "tailwindcss": "^2.2.19",
-    "@chakra-ui/react": "^2.8.0",
-    "@emotion/react": "^11.11.1",
-    "@emotion/styled": "^11.11.0",
-    "framer-motion": "^10.15.0"
+    "react-loading-skeleton": "^3.3.1",
+    "react-intersection-observer": "^9.5.2"
   },
-  "devDependencies": {
-    "autoprefixer": "^10.4.0",
-    "postcss": "^8.4.0"
-  },
+  "devDependencies": {},
   "browserslist": {
     "production": [
       ">0.2%",
@@ -35,5 +29,6 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  }
+  },
+  "main": "src/index.jsx"
 }

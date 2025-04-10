@@ -229,16 +229,25 @@ def read_root():
 @app.post("/graphql")
 async def graphql_query(request: GraphQLRequest):
     try:
-        # Preparar o payload
-        payload = json.dumps(request.dict(exclude_none=True))
+        # Create a dictionary with only the required fields
+        request_data = {
+            "query": request.query
+        }
+        if request.variables:
+            request_data["variables"] = request.variables
+        if request.operationName:
+            request_data["operationName"] = request.operationName
+            
+        # Convert to JSON string
+        payload = json.dumps(request_data)
         
-        # Criar cabeçalhos com autenticação
+        # Create headers with authentication
         headers = create_auth_header(payload)
         
         logger.debug(f"Request payload: {payload}")
         logger.debug(f"Headers: {json.dumps(headers, indent=2)}")
         
-        # Fazer a requisição para a API da Shopee
+        # Make request to Shopee API
         response = requests.post(
             SHOPEE_AFFILIATE_API_URL,
             data=payload,

@@ -1,0 +1,45 @@
+:root {
+  /* Brand Colors */
+  --brand-primary: #2563eb;
+  --brand-secondary: #f43f5e;
+  --brand-success: #22c55e;
+  --brand-warning: #f59e0b;
+  --brand-error: #ef4444;
+
+  /* Dark Mode Colors */
+  --dark-bg: #0f172a;
+  --dark-surface: #1e293b;
+  --dark-text: #f8fafc;
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, var(--brand-primary), #1d4ed8);
+  --gradient-accent: linear-gradient(135deg, var(--brand-secondary), #e11d48);
+  
+  /* Animations */
+  --transition-fast: 150ms ease-in-out;
+  --transition-normal: 250ms ease-in-out;
+  --animation-scale: scale(1.05);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: var(--radius-full);
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: var(--dark-bg);
+    --surface: var(--dark-surface);
+    --text-primary: var(--dark-text);
+  }
+}
