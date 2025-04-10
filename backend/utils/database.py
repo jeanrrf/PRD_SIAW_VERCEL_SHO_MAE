@@ -7,6 +7,8 @@ saving and updating products, and searching for products with filters and sortin
 import os
 import sqlite3
 import json
+import time
+import functools
 from typing import Dict, List, Optional, Any
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy import create_engine
@@ -26,10 +28,44 @@ DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 # Database engine configuration (SQLite)
-engine = create_engine(f'sqlite:///{DB_PATH}')
+# Add connection pool settings for better performance on Vercel
+engine_args = {
+    'pool_pre_ping': True,  # Verify connection before use
+    'pool_recycle': 3600,   # Recycle connections after 1 hour
+    'connect_args': {'timeout': 15}  # Connection timeout
+}
+
+if os.environ.get('VERCEL_ENV'):
+    # Read-only connection for Vercel
+    engine = create_engine(f'sqlite:///{DB_PATH}', **engine_args)
+else:
+    engine = create_engine(f'sqlite:///{DB_PATH}', **engine_args)
+
 # Create a local session to interact with the database
 SessionLocal = sessionmaker(bind=engine)
 
+# Retry decorator for database operations
+def retry_on_db_error(max_retries=3, delay=0.5):
+    """Decorator to retry database operations on failure"""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while retries < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except sqlite3.OperationalError as e:
+                    if "database is locked" in str(e) and retries < max_retries - 1:
+                        retries += 1
+                        logger.warning(f"Database locked, retrying {retries}/{max_retries}...")
+                        time.sleep(delay * retries)  # Exponential backoff
+                    else:
+                        logger.error(f"Database error after {retries} retries: {e}")
+                        raise
+        return wrapper
+    return decorator
+
+@retry_on_db_error()
 def get_db() -> Session:
     """
     Gets a database session.
@@ -38,16 +74,25 @@ def get_db() -> Session:
     """
     return SessionLocal()
 
+@retry_on_db_error()
 def get_db_connection():
     """Cria uma conexão com o banco de dados SQLite"""
     # Na Vercel, usamos o modo somente leitura, já que o filesystem é read-only
     if os.environ.get('VERCEL_ENV'):
-        # URI mode é necessário para conexões somente leitura
-        conn = sqlite3.connect(f'file:{DB_PATH}?mode=ro', uri=True)
+        try:
+            # URI mode é necessário para conexões somente leitura
+            conn = sqlite3.connect(f'file:{DB_PATH}?mode=ro&cache=shared', uri=True)
+            conn.execute("PRAGMA busy_timeout = 5000")  # Set timeout to 5s
+            conn.row_factory = sqlite3.Row
+            return conn
+        except Exception as e:
+            logger.error(f"Failed to connect to database in Vercel: {str(e)}")
+            raise
     else:
         conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+        conn.execute("PRAGMA busy_timeout = 5000")
+        conn.row_factory = sqlite3.Row
+        return conn
 
 async def save_product(product_data, affiliate_data=None):
     """

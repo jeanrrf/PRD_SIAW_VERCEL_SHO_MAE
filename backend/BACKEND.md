@@ -45,6 +45,8 @@ A principal entidade do sistema é o `Product`, que contém informações detalh
 - **Modo Somente Leitura**: Na Vercel, o banco de dados SQLite opera exclusivamente em modo somente leitura, devido às restrições do filesystem serverless.
 - **Pré-população de Dados**: O banco de dados deve ser pré-populado durante o processo de build ou importado de um snapshot existente.
 - **Cache**: Implementação de mecanismos de cache para reduzir consultas ao banco de dados.
+- **Conexões Simultâneas**: Uso de configurações PRAGMA para gerenciar conexões simultâneas e evitar erros de "database locked".
+- **Retentativas**: Implementação de mecanismo de retry para operações de banco de dados com falha.
 
 ## API Endpoints
 
@@ -75,16 +77,37 @@ A principal entidade do sistema é o `Product`, que contém informações detalh
 1. **Preparação do Banco de Dados**:
    - Execute o script de migração localmente para criar/atualizar o esquema
    - Preencha o banco de dados com dados necessários
-   - Inclua o arquivo .db no diretório de implantação
+   - Inclua o arquivo .db no diretório `data/` para implantação
+   - Verifique se o banco de dados não excede 50MB (limite recomendado para Vercel)
 
 2. **Configuração da Vercel**:
-   - Configure o arquivo vercel.json para incluir os arquivos do banco de dados
-   - Defina as rotas da API corretamente
-   - Certifique-se de que o Python 3.9 está sendo usado
+   - Use o arquivo `vercel.json` na raiz do projeto com as configurações adequadas
+   - Certifique-se que as rotas e build estejam configurados corretamente
+   - Configure o ambiente Python 3.9 no `vercel.json`
+   - Aumente o timeout das funções se necessário para lidar com consultas longas
 
 3. **Ambiente de Produção**:
-   - Verifique se o código detecta corretamente o ambiente Vercel
-   - Confirme que o código está configurado para modo somente leitura no ambiente Vercel
+   - O sistema detecta automaticamente o ambiente Vercel através da variável `VERCEL_ENV`
+   - O SQLite é configurado em modo somente leitura com URI especial
+   - Logs são configurados para maximizar a visibilidade na dashboard da Vercel
+
+4. **Otimizações para Serverless**:
+   - Conexões de banco de dados são otimizadas para ambiente serverless
+   - Configurações PRAGMA adicionadas para melhor gerenciamento de conexões
+   - Mecanismo de retry implementado para lidar com erros transientes
+
+### Comando de Implantação
+
+```bash
+# Instalar Vercel CLI (se ainda não tiver)
+npm install -g vercel
+
+# Login na sua conta Vercel
+vercel login
+
+# Implantar em produção
+vercel --prod
+```
 
 ## Limitações e Considerações
 
@@ -120,11 +143,23 @@ curl http://localhost:5000/api/health
 
 1. **Erro de acesso ao banco de dados**:
    - Verifique se o caminho do banco está correto
-   - Em produção, confirme que o arquivo está incluído na implantação
+   - Em produção, confirme que o arquivo está incluído no diretório `data/`
+   - Verifique se os logs mostram o reconhecimento do arquivo de banco
 
 2. **Erro "Database is locked"**:
-   - Isto ocorre quando múltiplas solicitações tentam acessar o banco simultaneamente
-   - Use proper connection pooling ou mecanismos de retentativa
+   - O sistema agora implementa retries automáticos para este tipo de erro
+   - Aumente os valores de `PRAGMA busy_timeout` se os erros persistirem
+   - Considere aumentar o tempo de duração da função no vercel.json
+
+3. **Erro 504 (Timeout)**:
+   - Funções serverless têm limite de execução (10 segundos por padrão)
+   - Aumente o `maxDuration` no arquivo vercel.json
+   - Otimize consultas pesadas ou adicione paginação
+
+4. **Build falha por dependências**:
+   - Certifique-se que `requirements.txt` está atualizado
+   - Verifique os logs de build para erros de dependência
+   - Use versões específicas das bibliotecas para evitar incompatibilidades
 
 ## Futuras Melhorias
 
@@ -136,4 +171,4 @@ curl http://localhost:5000/api/health
 
 ---
 
-Documentação atualizada em: Novembro/2023
+Documentação atualizada em: Janeiro/2024

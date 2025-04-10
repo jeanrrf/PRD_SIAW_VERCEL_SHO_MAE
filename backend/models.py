@@ -2,6 +2,11 @@ from sqlalchemy import Column, Integer, String, Float, DateTime, create_engine, 
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 import os
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
@@ -41,9 +46,21 @@ class Product(Base):
 # Criar o engine e as tabelas apenas em desenvolvimento
 # Na Vercel, não criamos tabelas, pois o banco de dados é somente leitura
 if not os.environ.get('VERCEL_ENV'):
-    engine = create_engine('sqlite:///shopee-analytics.db')
-    Base.metadata.create_all(engine)
+    try:
+        engine = create_engine('sqlite:///shopee-analytics.db', pool_pre_ping=True)
+        Base.metadata.create_all(engine)
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.error(f"Error creating database tables: {str(e)}")
 else:
     # In Vercel, just define the engine for reading
     DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'shopee-analytics.db')
-    engine = create_engine(f'sqlite:///{DB_PATH}')
+    engine = create_engine(f'sqlite:///{DB_PATH}', pool_pre_ping=True, 
+                          connect_args={'check_same_thread': False})
+    logger.info(f"Vercel read-only database configured at {DB_PATH}")
+    
+    # Check if database file exists
+    if not os.path.exists(DB_PATH):
+        logger.error(f"Database file not found at {DB_PATH}. This will cause failures in production.")
+    else:
+        logger.info(f"Database file verified at {DB_PATH}")
