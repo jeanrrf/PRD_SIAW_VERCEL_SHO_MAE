@@ -44,28 +44,26 @@ const CategoryPage = () => {
         loadCategories();
     }, [categoryId]);
 
-    // Carregar produtos quando a categoria ou filtros mudarem
     useEffect(() => {
+        const loadProducts = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+
+                // Ensure categoryId is passed correctly to fetchProducts
+                const data = await fetchProducts(categoryId === 'all' ? null : categoryId, 1, filters);
+                setProducts(data.products || []);
+                setProductCount(data.total || 0);
+            } catch (err) {
+                console.error('Error loading products:', err);
+                setError(err.message || 'Failed to load products. Please try again later.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
         loadProducts();
     }, [categoryId, filters]);
-
-    // Função para carregar todos os produtos da categoria
-    const loadProducts = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-            
-            const data = await fetchProducts(categoryId === 'all' ? null : categoryId, 1, filters);
-            setProducts(data.products || []);
-            setProductCount(data.total || 0);
-            
-        } catch (err) {
-            console.error('Erro ao carregar produtos:', err);
-            setError(err.message || 'Erro ao carregar produtos. Tente novamente mais tarde.');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleSearchSubmit = (e) => {
         e.preventDefault();
@@ -97,14 +95,14 @@ const CategoryPage = () => {
                         <button 
                             onClick={() => navigate('/')}
                             className="mr-3 hover:bg-blue-700 p-2 rounded-full transition-colors"
-                            aria-label="Voltar para página inicial"
+                            aria-label="Back to Home"
                         >
                             <FaChevronLeft />
                         </button>
-                        <h1 className="text-3xl font-bold">{categoryName || 'Produtos'}</h1>
+                        <h1 className="text-3xl font-bold">{categoryName || 'Products'}</h1>
                     </div>
                     <p className="text-blue-100">
-                        {productCount} {productCount === 1 ? 'produto encontrado' : 'produtos encontrados'}
+                        {productCount} {productCount === 1 ? 'product found' : 'products found'}
                     </p>
                 </div>
             </div>

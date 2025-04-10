@@ -113,7 +113,7 @@ const Categories = () => {
                         ))
                     ) : (
                         // Cartões de categorias com animação
-                        categories.slice(0, 12).map((category, index) => (
+                        categories.map((category, index) => (
                             <motion.div 
                                 key={category.id} 
                                 className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer overflow-hidden"
@@ -139,20 +139,6 @@ const Categories = () => {
                         ))
                     )}
                 </div>
-                
-                {!loading && !error && categories.length > 12 && (
-                    <div className="mt-10 text-center">
-                        <button 
-                            onClick={handleSeeAllClick}
-                            className="inline-flex items-center px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-full transition-colors"
-                        >
-                            Ver mais categorias
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                        </button>
-                    </div>
-                )}
             </div>
         </section>
     );
