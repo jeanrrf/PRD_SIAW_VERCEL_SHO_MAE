@@ -1,0 +1,120 @@
+/* Importação de fontes do Google */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Raleway:wght@300;400;700;900&family=Bruno+Ace+SC&display=swap');
+
+/* Diretivas Tailwind */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variáveis CSS para cores e outros valores reutilizáveis */
+:root {
+    --primary-color: #2A3990;
+    --secondary-color: #6777c7;
+    --accent-color: #FF5757;
+    --dark-color: #1E293B;
+    --light-color: #F8FAFC;
+    --gradient-start: #00c6ff;
+    --gradient-mid1: #0072ff;
+    --gradient-mid2: #ff0099;
+    --gradient-end: #ff6a00;
+}
+
+/* Estilos de tipografia base */
+body {
+    font-family: 'Montserrat', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Raleway', sans-serif;
+}
+
+.logo-text {
+    font-family: 'Bruno Ace SC', cursive;
+}
+
+/* Efeitos de texto e animações */
+.gradient-text {
+    background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid1), var(--gradient-mid2), var(--gradient-end));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-size: 300% 300%;
+    animation: gradientShift 5s ease infinite;
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.animate-hover:hover {
+    transform: translateY(-5px);
+    transition: all 0.3s ease;
+}
+
+/* Estilos de componentes do carrossel */
+.carousel-track {
+    display: flex;
+    transition: transform 0.5s ease-in-out;
+}
+
+.carousel-item {
+    flex: 0 0 auto;
+    width: 100%;
+    padding: 0 0.5rem;
+}
+
+/* Responsividade do carrossel */
+@media (min-width: 640px) {
+    .carousel-item {
+        width: 50%;
+    }
+}
+
+@media (min-width: 768px) {
+    .carousel-item {
+        width: 33.333333%;
+    }
+}
+
+@media (min-width: 1024px) {
+    .carousel-item {
+        width: 25%;
+    }
+}
+
+.carousel-prev:disabled, .carousel-next:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Efeitos de carregamento (skeleton) */
+.skeleton-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton-card::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0,
+        rgba(255, 255, 255, 0.2) 20%,
+        rgba(255, 255, 255, 0.5) 60%,
+        rgba(255, 255, 255, 0)
+    );
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}
