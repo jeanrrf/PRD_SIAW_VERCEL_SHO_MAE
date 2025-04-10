@@ -62,8 +62,35 @@ async function fetchProducts(forceRefresh = false) {
         }
 
         console.log('Buscando produtos da API...');
-        const response = await axios.get(`${API_URL}/products`);
-        const products = response.data || [];
+        
+        // Try different API endpoints if the first one fails
+        let products = [];
+        let response;
+        
+        try {
+            // Try the main API endpoint
+            response = await axios.get(`${API_URL}/products`);
+            products = response.data || [];
+        } catch (apiError) {
+            console.warn('Erro ao acessar API principal, tentando endpoint alternativo:', apiError.message);
+            
+            // Try the alternative endpoint
+            try {
+                response = await axios.get(`/db/products`);
+                products = response.data?.products || [];
+            } catch (altError) {
+                console.error('Erro ao acessar API alternativa:', altError.message);
+                
+                // If both failed, try one last endpoint
+                try {
+                    response = await axios.get(`/cached/products`);
+                    products = response.data?.products || [];
+                } catch (lastError) {
+                    console.error('Todos os endpoints de produtos falharam:', lastError.message);
+                    throw new Error('Não foi possível obter produtos de nenhum endpoint');
+                }
+            }
+        }
         
         if (products.length === 0) {
             console.warn('Nenhum produto encontrado na API');
@@ -97,7 +124,9 @@ async function fetchProducts(forceRefresh = false) {
         return formattedProducts;
     } catch (error) {
         console.error('Erro ao buscar produtos:', error);
-        throw new Error('Não foi possível obter produtos. Por favor, tente novamente mais tarde.');
+        
+        // Return empty array instead of throwing so the app doesn't crash
+        return [];
     }
 }
 
@@ -172,8 +201,19 @@ async function fetchCategories() {
         if (cache.categories) return cache.categories;
 
         console.log('Buscando categorias da API...');
-        const response = await axios.get(`${API_URL}/categories`);
-        const categories = response.data || [];
+        
+        // Try different API endpoints if the first one fails
+        let categories = [];
+        let response;
+        
+        try {
+            // Try the main API endpoint
+            response = await axios.get(`${API_URL}/categories`);
+            categories = response.data || [];
+        } catch (apiError) {
+            console.warn('Erro ao acessar API de categorias, usando categorias padrão:', apiError.message);
+            categories = defaultCategories();
+        }
 
         if (!categories.length) {
             console.warn('Nenhuma categoria encontrada, usando categorias padrão');

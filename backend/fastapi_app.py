@@ -226,21 +226,46 @@ async def update_categories(request: CategoryUpdateRequest):
 
 @app.get('/api/categories')
 async def get_categories():
-    """Endpoint para obter as categorias do arquivo CATEGORIA.json"""
+    """Get all product categories from the database"""
     try:
-        categories_path = os.path.join(os.path.dirname(__file__), 'CATEGORIA.json')
+        conn = sqlite3.connect('shopee-analytics.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
         
-        if not os.path.exists(categories_path):
-            raise HTTPException(status_code=404, detail='Arquivo de categorias não encontrado.')
+        # First try to get categories from the categories table if it exists
+        try:
+            cursor.execute("""
+                SELECT id, name, image_url, parent_id
+                FROM categories
+                ORDER BY name
+            """)
+            categories = [dict(row) for row in cursor.fetchall()]
             
-        with open(categories_path, 'r', encoding='utf-8') as f:
-            categories = json.load(f)
+            if categories:
+                return categories
+        except sqlite3.OperationalError:
+            # Table likely doesn't exist, continue to fallback method
+            pass
             
+        # Fallback: Extract unique categories from products table
+        cursor.execute("""
+            SELECT DISTINCT category_id as id, category_name as name
+            FROM products
+            WHERE category_id IS NOT NULL AND category_name IS NOT NULL
+            ORDER BY category_name
+        """)
+        categories = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        # Add default icon URLs for each category
+        for category in categories:
+            if not category.get('image_url'):
+                category['image_url'] = f"https://via.placeholder.com/64?text={category['name']}"
+                
         return categories
-    
     except Exception as e:
-        logger.error(f"Erro ao carregar categorias: {str(e)}")
-        raise HTTPException(status_code=500, detail=f'Erro ao carregar categorias: {str(e)}')
+        logger.error(f"Error in get_categories: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post('/api/search')
 async def search_shopee_products(request: SearchRequest):
