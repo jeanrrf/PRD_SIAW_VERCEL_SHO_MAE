@@ -1,7 +1,7 @@
 // src/api/connector.js
 
-// Update API_BASE_URL to use port 8001 to match the backend server port
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8001/api';
+// Update API_BASE_URL to use environment variable or fallback
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
 export const fetchProducts = async (categoryId = null, page = 1, filters = {}) => {
     try {
@@ -48,6 +48,30 @@ export const fetchCategories = async () => {
         return await response.json();
     } catch (error) {
         console.error('Error fetching categories:', error);
+        throw error;
+    }
+};
+
+// Add new helper for category counts
+export const fetchCategoryCounts = async () => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/categories/counts`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+            },
+            // Add credentials if needed
+            // credentials: 'include',
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.counts || {};
+    } catch (error) {
+        console.error('Error fetching category counts:', error);
         throw error;
     }
 };
