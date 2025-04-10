@@ -19,7 +19,8 @@ const SpecialOffers = () => {
             // Try to check database connection first
             await checkDatabaseConnection();
             
-            const data = await fetchShowcaseProducts();
+            // Request 24 products instead of default 12
+            const data = await fetchShowcaseProducts(24);
             setProducts(data);
             setFilteredProducts(data);
         } catch (err) {

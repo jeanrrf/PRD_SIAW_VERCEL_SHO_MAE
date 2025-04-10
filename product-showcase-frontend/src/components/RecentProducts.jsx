@@ -12,7 +12,8 @@ const RecentProducts = () => {
             try {
                 setLoading(true);
                 setError(null);
-                const products = await fetchShowcaseProducts();
+                // Request 24 products instead of default 12
+                const products = await fetchShowcaseProducts(24);
                 setProducts(products || []);
             } catch (err) {
                 console.error('Erro ao carregar produtos recentes:', err);

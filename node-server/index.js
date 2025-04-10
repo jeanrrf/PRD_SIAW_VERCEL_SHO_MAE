@@ -126,6 +126,10 @@ app.get(['/health', '/api/health'], (req, res) => {
 app.get(['/products/showcase', '/api/products/showcase'], async (req, res) => {
   try {
     const db = await openDb();
+    
+    // Parse limit parameter from request or use default
+    const limit = parseInt(req.query.limit) || 12;
+    
     const sql = `
       SELECT 
         id, shopee_id, name AS product_name, price, original_price,
@@ -134,10 +138,10 @@ app.get(['/products/showcase', '/api/products/showcase'], async (req, res) => {
       FROM products 
       WHERE image_url IS NOT NULL AND image_url != ''
       ORDER BY created_at DESC
-      LIMIT 12
+      LIMIT ?
     `;
     
-    db.all(sql, [], (err, products) => {
+    db.all(sql, [limit], (err, products) => {
       db.close();
       
       if (err) {
@@ -188,52 +192,86 @@ app.get(['/products/showcase', '/api/products/showcase'], async (req, res) => {
 app.get(['/products', '/api/products'], async (req, res) => {
   try {
     const db = await openDb();
+    
+    // Get parameters from request
+    const limit = parseInt(req.query.limit) || 12;
+    const page = parseInt(req.query.page) || 1;
+    const offset = (page - 1) * limit;
+    
+    // Add filters if provided in the query
+    let whereClause = "WHERE image_url IS NOT NULL AND image_url != ''";
+    const params = [];
+    
+    if (req.query.category && req.query.category !== 'all') {
+      whereClause += " AND category_id = ?";
+      params.push(req.query.category);
+    }
+    
+    // Build the SQL query with pagination
     const sql = `
       SELECT 
         id, shopee_id, name AS product_name, price, original_price,
         image_url, shop_name, shop_id, commission_rate, 
         offer_link, rating_star, price_discount_rate, sales
       FROM products 
-      WHERE image_url IS NOT NULL AND image_url != ''
+      ${whereClause}
       ORDER BY created_at DESC
-      LIMIT 12
+      LIMIT ? OFFSET ?
     `;
     
-    db.all(sql, [], (err, products) => {
-      db.close();
-      
-      if (err) {
-        console.error(`Database error: ${err.message}`);
+    // Add pagination parameters
+    params.push(limit, offset);
+    
+    // Get total count for pagination info
+    db.get(`SELECT COUNT(*) as total FROM products ${whereClause}`, params.slice(0, -2), (countErr, countRow) => {
+      if (countErr) {
+        console.error(`Database error counting products: ${countErr.message}`);
+        db.close();
         return res.status(500).json({
-          error: `Database error: ${err.message}`
+          error: `Database error: ${countErr.message}`
         });
       }
       
-      // Calculate additional fields for each product
-      products.forEach(product => {
-        // Calculate discount percentage
-        if (product.original_price && product.price) {
-          const discount = Math.round(100 - (product.price / product.original_price * 100));
-          product.discount_percent = discount > 0 ? discount : 0;
-        } else {
-          product.discount_percent = 0;
+      // Now get the actual products
+      db.all(sql, params, (err, products) => {
+        db.close();
+        
+        if (err) {
+          console.error(`Database error: ${err.message}`);
+          return res.status(500).json({
+            error: `Database error: ${err.message}`
+          });
         }
         
-        // Format price
-        if ('price' in product) {
-          product.formatted_price = `R$ ${product.price.toFixed(2)}`.replace('.', ',');
-        }
+        // Calculate additional fields for each product
+        products.forEach(product => {
+          // Calculate discount percentage
+          if (product.original_price && product.price) {
+            const discount = Math.round(100 - (product.price / product.original_price * 100));
+            product.discount_percent = discount > 0 ? discount : 0;
+          } else {
+            product.discount_percent = 0;
+          }
+          
+          // Format price
+          if ('price' in product) {
+            product.formatted_price = `R$ ${product.price.toFixed(2)}`.replace('.', ',');
+          }
+          
+          // Convert commission to percentage
+          if ('commission_rate' in product) {
+            product.commission_percent = Math.round(product.commission_rate * 100 * 10) / 10;
+          }
+        });
         
-        // Convert commission to percentage
-        if ('commission_rate' in product) {
-          product.commission_percent = Math.round(product.commission_rate * 100 * 10) / 10;
-        }
-      });
-      
-      res.json({
-        products,
-        count: products.length,
-        timestamp: new Date().toISOString()
+        res.json({
+          products,
+          count: products.length,
+          total: countRow.total,
+          page: page,
+          limit: limit,
+          pages: Math.ceil(countRow.total / limit)
+        });
       });
     });
   } catch (error) {

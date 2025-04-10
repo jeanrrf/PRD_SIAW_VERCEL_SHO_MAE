@@ -1,6 +1,23 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { fetchCategoryCounts } from '../api/connector';
 
 const Footer = () => {
+    const [categories, setCategories] = useState([]);
+
+    useEffect(() => {
+        const loadCategories = async () => {
+            try {
+                const counts = await fetchCategoryCounts();
+                const categoriesData = Object.entries(counts).map(([id, count]) => ({ id, count }));
+                setCategories(categoriesData);
+            } catch (err) {
+                console.error('Erro ao carregar categorias no rodapé:', err);
+            }
+        };
+
+        loadCategories();
+    }, []);
+
     return (
         <footer className="bg-dark text-white py-12">
             <div className="container mx-auto px-4">
@@ -21,7 +38,17 @@ const Footer = () => {
                     <div>
                         <h4 className="text-xl font-bold mb-4">Categorias</h4>
                         <ul className="space-y-2" id="footer-categories">
-                            {/* Categories will be dynamically loaded here */}
+                            {categories.length > 0 ? (
+                                categories.map(category => (
+                                    <li key={category.id}>
+                                        <a href={`/category/${category.id}`} className="text-gray-400 hover:text-white">
+                                            Categoria {category.id} ({category.count})
+                                        </a>
+                                    </li>
+                                ))
+                            ) : (
+                                <li className="text-gray-500">Carregando categorias...</li>
+                            )}
                         </ul>
                     </div>
                     <div>

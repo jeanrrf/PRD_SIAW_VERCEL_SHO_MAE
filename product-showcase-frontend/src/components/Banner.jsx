@@ -1,5 +1,6 @@
 import React from 'react';
 import styles from './Banner.module.css';
+import backgroundImage from '../assets/img/pattern.png';
 
 const Banner = () => {
     return (
@@ -7,12 +8,11 @@ const Banner = () => {
             {/* Background Layer */}
             <div className={styles.backgroundLayer}>
                 <img 
-                    src="/assets/img/logo.jpg" 
-                    alt="Banner Background"
+                    src={backgroundImage} 
+                    alt="Padrão de fundo do banner"
                     className={styles.backgroundImage}
                 />
                 <div className={styles.overlay}></div>
-                <div className={styles.pattern}></div>
             </div>
             
             {/* Content Layer */}

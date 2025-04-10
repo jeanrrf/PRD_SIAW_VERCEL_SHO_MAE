@@ -201,9 +201,9 @@ export const checkApiHealth = async () => {
     }
 };
 
-export const fetchShowcaseProducts = async () => {
+export const fetchShowcaseProducts = async (limit = 24) => {
     try {
-        const response = await fetchWithRetry(`${API_BASE_URL}/products/showcase`, {
+        const response = await fetchWithRetry(`${API_BASE_URL}/products/showcase?limit=${limit}`, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
