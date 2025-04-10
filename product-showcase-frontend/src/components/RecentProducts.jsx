@@ -60,7 +60,12 @@ const RecentProducts = () => {
                     ) : (
                         products.map((product) => (
                             <div key={product.id} className="bg-white rounded-lg shadow-md p-4">
-                                <img src={product.image} alt={product.name} className="h-40 w-full object-cover mb-4 rounded-lg" />
+                                <img 
+                                    src={product.image} 
+                                    alt={product.name || 'Produto recente'} 
+                                    className="h-40 w-full object-cover mb-4 rounded-lg" 
+                                    title={product.name} // Added title attribute
+                                />
                                 <h3 className="text-lg font-semibold mb-2">{product.name}</h3>
                                 <p className="text-gray-600 mb-2">{product.description}</p>
                                 <p className="text-blue-500 font-bold">{product.price}</p>

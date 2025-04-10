@@ -1,7 +1,7 @@
 // src/api/connector.js
 
-// Change the port from 8000 to 5000 to match the API_BASE_URL in config.js
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api';
+// Update API_BASE_URL to use port 8001 to match the backend server port
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8001/api';
 
 export const fetchProducts = async () => {
     try {
@@ -87,7 +87,8 @@ export const checkDatabaseConnection = async () => {
         console.error('Error checking database:', error);
         return {
             status: 'error',
-            error: error.message
+            error: error.message,
+            message: 'Failed to connect to API. Make sure backend server is running on port 8001.'
         };
     }
 };

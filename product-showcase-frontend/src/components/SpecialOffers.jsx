@@ -75,8 +75,11 @@ const SpecialOffers = () => {
                                 <div className="relative">
                                     <img 
                                         src={product.image_url} 
-                                        alt={product.product_name}
+                                        alt={product.product_name || 'Oferta especial'}
                                         className="w-full h-64 object-cover"
+                                        title={product.product_name}
+                                        loading="lazy"
+                                        decoding="async"
                                         onError={(e) => {
                                             e.target.onerror = null;
                                             e.target.src = 'https://via.placeholder.com/300x300?text=Imagem+Indisponível';

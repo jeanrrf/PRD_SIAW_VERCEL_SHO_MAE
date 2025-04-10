@@ -5,6 +5,8 @@ import {
     FaLaptop, FaMobile, FaTshirt, FaUserTie, FaHome, 
     FaBaby, FaSprayCan, FaRunning, FaGamepad, FaCar, FaTools 
 } from 'react-icons/fa';
+// Import API base URL from connector
+import { API_BASE_URL } from '../api/connector';
 
 // Updated categories data with icons instead of image URLs
 const categoriesData = [
@@ -64,8 +66,6 @@ const categoriesData = [
         "icon": FaTools
     }
 ];
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
 
 const Categories = () => {
     const [categories, setCategories] = useState([]);
