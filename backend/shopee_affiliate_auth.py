@@ -850,9 +850,29 @@ async def health_check():
 async def get_showcase_products():
     """Get products for the showcase from the database"""
     try:
-        conn = sqlite3.connect('shopee-analytics.db')
+        logger.info(f"Fetching showcase products from database")
+        
+        # Check if database file exists
+        db_path = 'shopee-analytics.db'
+        if not os.path.exists(db_path):
+            logger.error(f"Database file does not exist at: {os.path.abspath(db_path)}")
+            return {"products": [], "error": "Database file not found", "db_path": os.path.abspath(db_path)}
+        
+        conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
+        
+        # First check if products table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='products'")
+        if not cursor.fetchone():
+            logger.error("Products table does not exist in database")
+            return {"products": [], "error": "Products table does not exist"}
+        
+        # Count products in the database
+        cursor.execute("SELECT COUNT(*) as count FROM products")
+        count_result = cursor.fetchone()
+        product_count = count_result['count'] if count_result else 0
+        logger.info(f"Total products in database: {product_count}")
         
         # Obter produtos mais recentes com imagens válidas
         cursor.execute("""
@@ -867,6 +887,7 @@ async def get_showcase_products():
         """)
         
         products = [dict(row) for row in cursor.fetchall()]
+        logger.info(f"Retrieved {len(products)} products from database")
         
         # Para cada produto, calcule alguns campos adicionais úteis para a vitrine
         for product in products:
@@ -886,11 +907,18 @@ async def get_showcase_products():
                 product['commission_percent'] = round(product['commission_rate'] * 100, 1)
                 
         conn.close()
-        return {"products": products}
+        
+        # Include diagnostic info in response
+        return {
+            "products": products, 
+            "count": len(products),
+            "total_in_db": product_count,
+            "timestamp": datetime.now().isoformat()
+        }
         
     except Exception as e:
-        logger.error(f"Error getting showcase products: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error getting showcase products: {str(e)}", exc_info=True)
+        return {"products": [], "error": str(e), "traceback": traceback.format_exc()}
 
 if __name__ == "__main__":
     import argparse

@@ -415,6 +415,64 @@ async def health_check():
         "environment": os.environ.get('VERCEL_ENV', 'development')
     }
 
+@app.get('/api/debug/database')
+async def debug_database():
+    """
+    Endpoint for debugging database connections
+    """
+    try:
+        import sqlite3
+        import os
+        
+        result = {
+            "status": "checking",
+            "database_exists": False,
+            "tables": [],
+            "product_count": 0,
+            "sample_products": []
+        }
+        
+        # Check if database file exists
+        db_path = 'shopee-analytics.db'
+        result["database_path"] = os.path.abspath(db_path)
+        result["database_exists"] = os.path.exists(db_path)
+        
+        if result["database_exists"]:
+            # Connect to database
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Get list of tables
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = [row[0] for row in cursor.fetchall()]
+            result["tables"] = tables
+            
+            # Check if products table exists
+            if 'products' in tables:
+                # Get count of products
+                cursor.execute("SELECT COUNT(*) as count FROM products")
+                count = cursor.fetchone()[0]
+                result["product_count"] = count
+                
+                # Get sample products
+                if count > 0:
+                    cursor.execute("SELECT * FROM products LIMIT 3")
+                    sample_products = [dict(row) for row in cursor.fetchall()]
+                    result["sample_products"] = sample_products
+            
+            conn.close()
+        
+        result["status"] = "complete"
+        return result
+    except Exception as e:
+        logger.error(f"Error in debug_database: {str(e)}", exc_info=True)
+        return {
+            "status": "error",
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
+
 # Define routes to maintain compatibility with existing shopee_affiliate_auth.py routes
 @app.get('/{endpoint:path}')
 async def forward_to_shopee_auth(endpoint: str, request: Request):

@@ -44,14 +44,50 @@ export const checkApiHealth = async () => {
 
 export const fetchShowcaseProducts = async () => {
     try {
+        console.log(`Fetching products from: ${API_BASE_URL}/products`);
         const response = await fetch(`${API_BASE_URL}/products`);
+        
         if (!response.ok) {
-            throw new Error(`Erro na API: ${response.status}`);
+            const errorText = await response.text();
+            console.error(`API Error (${response.status}): ${errorText}`);
+            throw new Error(`API Error ${response.status}: ${errorText}`);
         }
+        
         const data = await response.json();
+        console.log('API Response:', data);
+        
+        // Check if we have data in the expected format
+        if (!data || !Array.isArray(data.products)) {
+            console.warn('API response missing products array:', data);
+            return [];
+        }
+        
         return data.products || [];
     } catch (error) {
-        console.error('Erro ao buscar produtos para vitrine:', error);
+        console.error('Error fetching showcase products:', error);
+        // Return empty array instead of throwing to prevent UI crashes
         return [];
+    }
+};
+
+// Add a debug function to check database connection
+export const checkDatabaseConnection = async () => {
+    try {
+        console.log(`Checking database connection: ${API_BASE_URL}/debug/database`);
+        const response = await fetch(`${API_BASE_URL}/debug/database`);
+        
+        if (!response.ok) {
+            throw new Error(`API Error ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Database check result:', data);
+        return data;
+    } catch (error) {
+        console.error('Error checking database:', error);
+        return {
+            status: 'error',
+            error: error.message
+        };
     }
 };
