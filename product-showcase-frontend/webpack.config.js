@@ -23,8 +23,8 @@ module.exports = {
     port: 5000,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
-        pathRewrite: { '^/api': '' }
+        target: 'http://localhost:3000',
+        pathRewrite: { '^/api': '/api' }
       }
     }
   }

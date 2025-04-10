@@ -1,7 +1,7 @@
 // src/api/connector.js
 
-// Update API base URL to use port 5000
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Update API base URL to use port 3000 where the backend is actually running
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
 // Add connection logging
 console.log('🔌 Frontend API connector initialized');
