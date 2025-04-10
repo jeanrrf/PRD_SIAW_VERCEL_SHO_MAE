@@ -8,27 +8,18 @@ const useProducts = (categoryId = null) => {
 
     useEffect(() => {
         const loadProducts = async () => {
+            setLoading(true);
             try {
-                setLoading(true);
-                let data;
-                
-                // If categoryId is provided, fetch products for that category
+                let productsData;
                 if (categoryId) {
-                    const response = await fetch(`http://localhost:8000/api/db/products/category/${categoryId}`);
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! Status: ${response.status}`);
-                    }
-                    data = await response.json();
-                    console.log(`Products loaded for category ${categoryId}:`, data);
+                    productsData = await fetchProductsByCategory(categoryId);
                 } else {
-                    // Otherwise fetch all products
-                    data = await fetchProducts();
+                    productsData = await fetchShowcaseProducts();
                 }
-                
-                setProducts(data);
-            } catch (err) {
-                console.error('Error loading products:', err);
-                setError(err);
+                setProducts(productsData);
+            } catch (error) {
+                console.error('Error loading products:', error);
+                setError(error);
             } finally {
                 setLoading(false);
             }
