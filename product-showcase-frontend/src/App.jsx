@@ -4,6 +4,10 @@ import Home from './pages/Home';
 import CategoryPage from './pages/CategoryPage';
 import Layout from './components/Layout';
 
+import './styles/theme.css';
+import './styles/global.css';
+import 'react-loading-skeleton/dist/skeleton.css';
+
 // Add future flags configuration
 const routerOptions = {
     future: {

@@ -1,30 +1,34 @@
 import React from 'react';
+import styles from '../styles/components/Banner.module.css';
 
 const Banner = () => {
     return (
-        <section className="relative text-white overflow-hidden h-[500px] flex items-center">
+        <section className={styles.banner}>
             {/* Background Layer */}
-            <div className="absolute inset-0 w-full h-full">
+            <div className={styles.backgroundLayer}>
                 <img 
                     src="/assets/img/logo.jpg" 
                     alt="Banner Background"
-                    className="w-full h-full object-cover"
+                    className={styles.backgroundImage}
                 />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-purple-900/70 to-indigo-900/80"></div>
-                <div className="absolute inset-0 bg-[url('/assets/img/pattern.png')] opacity-20"></div>
+                <div className={styles.overlay}></div>
+                <div className={styles.pattern}></div>
             </div>
             
             {/* Content Layer */}
-            <div className="relative z-10 w-full">
-                <div className="container mx-auto px-4">
-                    <div className="max-w-3xl mx-auto text-center">
-                        <div className="inline-block py-1 px-3 rounded-full bg-indigo-500/20 text-indigo-300 text-sm font-medium mb-4">
+            <div className={styles.content}>
+                <div className="container mx-auto px-6">
+                    <div className="max-w-4xl mx-auto text-center text-white">
+                        <div className={styles.badge}>
                             Ofertas Exclusivas
                         </div>
-                        <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
-                            Descubra os Melhores Produtos da <span className="text-accent">Shopee</span>
+                        <h1 className={styles.title}>
+                            Descubra os Melhores Produtos da{' '}
+                            <span className={styles.highlight}>
+                                Shopee
+                            </span>
                         </h1>
-                        <p className="text-lg opacity-90 mb-8">
+                        <p className={styles.description}>
                             Encontre as melhores ofertas selecionadas automaticamente, com descontos imperdíveis e qualidade garantida.
                         </p>
                     </div>
