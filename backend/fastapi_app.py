@@ -4,6 +4,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Union
+import traceback  # Add this import
 
 # Add the parent directory to sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -123,11 +124,69 @@ def identify_hot_products(products, min_sales=50, recent_weight=0.6, commission_
 async def get_all_products():
     """Get all products from the database"""
     try:
-        products = await get_products()
-        return products
+        logger.info("Fetching products for showcase from database")
+        
+        import sqlite3
+        import os
+        from datetime import datetime
+        
+        # Check if database file exists
+        db_path = 'shopee-analytics.db'
+        if not os.path.exists(db_path):
+            logger.error(f"Database file does not exist at: {os.path.abspath(db_path)}")
+            return {"products": [], "error": "Database file not found", "db_path": os.path.abspath(db_path)}
+        
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Get most recent products with valid images
+        cursor.execute("""
+            SELECT 
+                id, shopee_id, name AS product_name, price, original_price,
+                image_url, shop_name, shop_id, commission_rate, 
+                offer_link, rating_star, price_discount_rate, sales
+            FROM products 
+            WHERE image_url IS NOT NULL AND image_url != ''
+            ORDER BY created_at DESC
+            LIMIT 12
+        """)
+        
+        products = [dict(row) for row in cursor.fetchall()]
+        logger.info(f"Retrieved {len(products)} products from database")
+        
+        # Calculate additional fields for each product
+        for product in products:
+            # Calculate discount percentage
+            if product.get('original_price') and product.get('price'):
+                discount = round(100 - (product['price'] / product['original_price'] * 100))
+                product['discount_percent'] = discount if discount > 0 else 0
+            else:
+                product['discount_percent'] = 0
+                
+            # Format price
+            if 'price' in product:
+                product['formatted_price'] = f"R$ {product['price']:.2f}".replace('.', ',')
+                
+            # Convert commission to percentage
+            if 'commission_rate' in product:
+                product['commission_percent'] = round(product['commission_rate'] * 100, 1)
+                
+        conn.close()
+        
+        # Return response with diagnostic info
+        return {
+            "products": products,
+            "count": len(products),
+            "timestamp": datetime.now().isoformat()
+        }
     except Exception as e:
-        logger.error(f"Error in get_all_products: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in get_all_products: {str(e)}", exc_info=True)
+        return {
+            "products": [], 
+            "error": str(e), 
+            "traceback": traceback.format_exc()
+        }
 
 @app.get('/api/products/search')
 async def search_products(
@@ -266,6 +325,46 @@ async def get_categories():
     except Exception as e:
         logger.error(f"Error in get_categories: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get('/api/categories/counts')
+async def get_category_counts():
+    """Get product counts for each category from the database"""
+    try:
+        import sqlite3
+        import os
+        
+        # Check if database file exists
+        db_path = 'shopee-analytics.db'
+        if not os.path.exists(db_path):
+            logger.error(f"Database file does not exist at: {os.path.abspath(db_path)}")
+            return {"error": "Database file not found"}
+        
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Query to count products in each category
+        cursor.execute("""
+            SELECT category_id, COUNT(*) as product_count
+            FROM products
+            WHERE category_id IS NOT NULL
+            GROUP BY category_id
+        """)
+        
+        # Convert to a dictionary with category_id as key
+        counts = {}
+        for row in cursor.fetchall():
+            category_id = str(row['category_id'])  # Convert to string to match frontend format
+            counts[category_id] = row['product_count']
+            
+        conn.close()
+        
+        logger.info(f"Retrieved category counts: {counts}")
+        return {"counts": counts}
+        
+    except Exception as e:
+        logger.error(f"Error getting category counts: {str(e)}", exc_info=True)
+        return {"error": str(e)}
 
 @app.post('/api/search')
 async def search_shopee_products(request: SearchRequest):
@@ -423,6 +522,7 @@ async def debug_database():
     try:
         import sqlite3
         import os
+        import traceback  # Add this import
         
         result = {
             "status": "checking",
