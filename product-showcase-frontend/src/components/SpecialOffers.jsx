@@ -1,19 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { fetchShowcaseProducts } from '../api/connector';
+import { fetchShowcaseProducts, checkDatabaseConnection } from '../api/connector';
 
 const SpecialOffers = () => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [debug, setDebug] = useState(null);
 
     useEffect(() => {
         const loadProducts = async () => {
             try {
+                // First check database connection
+                const dbStatus = await checkDatabaseConnection();
+                setDebug(dbStatus);
+                
+                // Then load products
                 const data = await fetchShowcaseProducts();
+                console.log('Products loaded:', data);
                 setProducts(data);
             } catch (err) {
+                console.error('Error loading products:', err);
                 setError(err);
-                console.error('Erro ao carregar produtos:', err);
             } finally {
                 setLoading(false);
             }
@@ -32,6 +39,14 @@ const SpecialOffers = () => {
                     </span>
                 </h2>
                 
+                {/* Debug information - only visible during development */}
+                {process.env.NODE_ENV === 'development' && debug && (
+                    <div className="mb-4 p-4 border border-gray-300 bg-white rounded">
+                        <h3 className="font-bold mb-2">Debug Info:</h3>
+                        <pre className="text-xs overflow-auto max-h-40">{JSON.stringify(debug, null, 2)}</pre>
+                    </div>
+                )}
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="special-offers">
                     {loading ? (
                         // Esqueleto de carregamento (já existente)
@@ -45,11 +60,13 @@ const SpecialOffers = () => {
                         ))
                     ) : error ? (
                         <div className="col-span-3 text-center text-red-500">
-                            Erro ao carregar produtos. Tente novamente mais tarde.
+                            <p>Erro ao carregar produtos. Tente novamente mais tarde.</p>
+                            <p className="text-sm mt-2">{error.toString()}</p>
                         </div>
                     ) : products.length === 0 ? (
                         <div className="col-span-3 text-center text-gray-500">
-                            Nenhum produto encontrado.
+                            <p>Nenhum produto encontrado.</p>
+                            <p className="text-sm mt-2">Verifique a conexão com o banco de dados.</p>
                         </div>
                     ) : (
                         // Renderizar produtos
