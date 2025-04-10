@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { fetchShowcaseProducts } from '../api/connector';
+import ProductCard from './ProductCard';
 
 const RecentProducts = () => {
     const [products, setProducts] = useState([]);
@@ -35,43 +36,29 @@ const RecentProducts = () => {
                     </span>
                 </h2>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="recent-products">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="recent-products">
                     {loading ? (
-                        <>
-                            <div className="animate-pulse skeleton-card">
-                                <div className="bg-gray-200 rounded-lg h-80 mb-3"></div>
+                        Array(4).fill(0).map((_, index) => (
+                            <div key={index} className="animate-pulse">
+                                <div className="bg-gray-200 rounded-lg h-52 mb-3"></div>
                                 <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
                                 <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                                <div className="h-6 bg-gray-200 rounded w-1/4"></div>
+                                <div className="h-6 bg-gray-200 rounded w-1/3"></div>
                             </div>
-                            <div className="animate-pulse skeleton-card">
-                                <div className="bg-gray-200 rounded-lg h-80 mb-3"></div>
-                                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                                <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                                <div className="h-6 bg-gray-200 rounded w-1/4"></div>
-                            </div>
-                            <div className="animate-pulse skeleton-card">
-                                <div className="bg-gray-200 rounded-lg h-80 mb-3"></div>
-                                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                                <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-                                <div className="h-6 bg-gray-200 rounded w-1/4"></div>
-                            </div>
-                        </>
+                        ))
                     ) : error ? (
-                        <p className="text-red-500">Erro ao carregar produtos recentes.</p>
+                        <div className="col-span-full text-center text-red-500 py-12">
+                            <p className="text-xl mb-2">Erro ao carregar produtos recentes</p>
+                            <p className="text-sm">{error.toString()}</p>
+                        </div>
+                    ) : products.length === 0 ? (
+                        <div className="col-span-full text-center text-gray-500 py-12">
+                            <p className="text-xl mb-2">Nenhum produto encontrado</p>
+                            <p className="text-sm">Tente novamente mais tarde.</p>
+                        </div>
                     ) : (
                         products.map((product) => (
-                            <div key={product.id} className="bg-white rounded-lg shadow-md p-4">
-                                <img 
-                                    src={product.image} 
-                                    alt={product.name || 'Produto recente'} 
-                                    className="h-40 w-full object-cover mb-4 rounded-lg" 
-                                    title={product.name} // Added title attribute
-                                />
-                                <h3 className="text-lg font-semibold mb-2">{product.name}</h3>
-                                <p className="text-gray-600 mb-2">{product.description}</p>
-                                <p className="text-blue-500 font-bold">{product.price}</p>
-                            </div>
+                            <ProductCard key={product.shopee_id || product.id} product={product} />
                         ))
                     )}
                 </div>
