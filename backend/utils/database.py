@@ -32,21 +32,18 @@ SessionLocal = sessionmaker(bind=engine)
 
 def get_db() -> Session:
     """
-    Generator function to get a database session.
-    Ensures that the session is closed after use.
+    Gets a database session.
+    Returns the session directly instead of using generator pattern
+    which is not compatible with Vercel's serverless functions.
     """
-    db = SessionLocal()
-    try:
-        yield db
-    finally: 
-        db.close()
+    return SessionLocal()
 
 def get_db_connection():
     """Cria uma conexão com o banco de dados SQLite"""
     # Na Vercel, usamos o modo somente leitura, já que o filesystem é read-only
     if os.environ.get('VERCEL_ENV'):
         # URI mode é necessário para conexões somente leitura
-        conn = sqlite3.connect(DB_PATH, uri=True)
+        conn = sqlite3.connect(f'file:{DB_PATH}?mode=ro', uri=True)
     else:
         conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -60,7 +57,12 @@ async def save_product(product_data, affiliate_data=None):
         product_data (dict): Dados do produto da API da Shopee.
         affiliate_data (dict, optional): Dados opcionais do link de afiliado (short_link, sub_ids). Defaults to None.
     """
-    db = next(get_db())
+    # Vercel environment - read-only mode
+    if os.environ.get('VERCEL_ENV'):
+        logger.warning("Tentativa de salvar produto em ambiente somente leitura (Vercel)")
+        return False
+        
+    db = get_db()
 
     try:
         # Verificar se o produto já existe

@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, create_engine, JSON, func
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
+import os
 
 Base = declarative_base()
 
@@ -37,6 +38,12 @@ class Product(Base):
     item_status = Column(String)
     discount = Column(String)
 
-# Criar o engine e as tabelas
-engine = create_engine('sqlite:///shopee-analytics.db')
-Base.metadata.create_all(engine)
+# Criar o engine e as tabelas apenas em desenvolvimento
+# Na Vercel, não criamos tabelas, pois o banco de dados é somente leitura
+if not os.environ.get('VERCEL_ENV'):
+    engine = create_engine('sqlite:///shopee-analytics.db')
+    Base.metadata.create_all(engine)
+else:
+    # In Vercel, just define the engine for reading
+    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'shopee-analytics.db')
+    engine = create_engine(f'sqlite:///{DB_PATH}')
