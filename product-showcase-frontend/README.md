@@ -3,8 +3,8 @@
 This is a React-based frontend application for showcasing products from Shopee. The application is designed to provide users with an intuitive interface to explore various product categories, view special offers, and subscribe to newsletters for exclusive deals.
 
 ## Port Configuration
-- Frontend: Runs on port 3000
-- Backend API: Runs on port 5000
+- Frontend: Runs on port 5000
+- Backend API: Runs on port 3000
 
 ## Project Structure
 

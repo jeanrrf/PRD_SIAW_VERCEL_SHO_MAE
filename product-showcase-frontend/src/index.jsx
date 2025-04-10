@@ -5,8 +5,11 @@ import './styles/theme.css'; // Import theme first
 import './styles/global.css';
 import 'react-loading-skeleton/dist/skeleton.css';
 
-// Update global API URL to use port 5000
-window.REACT_APP_API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Update global API URL to use port 3000 where the backend is running
+window.REACT_APP_API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+
+console.log('🔌 Frontend running on port 5000');
+console.log(`🌐 Connecting to backend API at: ${window.REACT_APP_API_URL}`);
 
 // Update fetch timeout
 const originalFetch = window.fetch;

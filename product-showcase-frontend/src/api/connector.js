@@ -3,23 +3,39 @@
 // Update API base URL to use port 5000
 export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
+// Add connection logging
+console.log('🔌 Frontend API connector initialized');
+console.log(`🌐 API Base URL: ${API_BASE_URL}`);
+console.log(`📡 Frontend attempting to connect to backend at: ${API_BASE_URL}`);
+
 // Add connection state tracking
 let isConnected = false;
 let connectionCheckPromise = null;
 
 const checkConnection = async () => {
+    console.log(`🔍 Checking API connection to: ${API_BASE_URL}/health`);
     if (connectionCheckPromise) return connectionCheckPromise;
 
     connectionCheckPromise = (async () => {
         try {
+            console.log('📤 Sending health check request...');
             const response = await fetch(`${API_BASE_URL}/health`, {
                 method: 'GET',
                 headers: { 'Accept': 'application/json' },
             });
             isConnected = response.ok;
+            console.log(`✅ API connection ${isConnected ? 'successful' : 'failed'}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('📊 API Health Data:', data);
+                console.log(`🔌 Backend is running on port: ${new URL(API_BASE_URL).port || '(default)'}`);
+            }
+            
             return isConnected;
         } catch (error) {
-            console.error('API connection check failed:', error);
+            console.error('❌ API connection check failed:', error);
+            console.error(`❗ Failed to connect to ${API_BASE_URL}/health`);
             isConnected = false;
             return false;
         } finally {
@@ -30,11 +46,12 @@ const checkConnection = async () => {
     return connectionCheckPromise;
 };
 
-// Add database state tracking
+// Add database state tracking with improved logging
 let isDatabaseAvailable = false;
 let dbCheckPromise = null;
 
 const checkDatabaseAvailability = async () => {
+    console.log('🔍 Checking database availability...');
     if (dbCheckPromise) return dbCheckPromise;
 
     dbCheckPromise = (async () => {
@@ -47,9 +64,13 @@ const checkDatabaseAvailability = async () => {
             
             const data = await response.json();
             isDatabaseAvailable = data.database_status === 'connected';
+            console.log(`💾 Database ${isDatabaseAvailable ? 'is' : 'is NOT'} available`);
+            if (data.database_path) {
+                console.log(`📁 Database path: ${data.database_path}`);
+            }
             return isDatabaseAvailable;
         } catch (error) {
-            console.error('Database check failed:', error);
+            console.error('❌ Database check failed:', error);
             isDatabaseAvailable = false;
             return false;
         } finally {
@@ -60,14 +81,20 @@ const checkDatabaseAvailability = async () => {
     return dbCheckPromise;
 };
 
-// Add retry wrapper
+// Add retry wrapper with enhanced logging
 const fetchWithRetry = async (url, options = {}, retries = 3) => {
+    console.log(`🔄 Fetching with retry: ${url}`);
     let lastError;
     
     for (let i = 0; i < retries; i++) {
         try {
+            if (i > 0) {
+                console.log(`⚠️ Retry attempt ${i+1}/${retries} for: ${url}`);
+            }
+            
             // Check both API and database connectivity
             if (!isConnected || !isDatabaseAvailable) {
+                console.log('🔌 Connection check required before request');
                 await Promise.all([checkConnection(), checkDatabaseAvailability()]);
                 if (!isConnected) {
                     throw new Error('API indisponível');
@@ -77,6 +104,7 @@ const fetchWithRetry = async (url, options = {}, retries = 3) => {
                 }
             }
 
+            console.log(`📤 Sending request to: ${url}`);
             const response = await fetch(url, {
                 ...options,
                 headers: {
@@ -90,15 +118,17 @@ const fetchWithRetry = async (url, options = {}, retries = 3) => {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
+            console.log(`✅ Request successful: ${url}`);
             return response;
         } catch (error) {
+            console.error(`❌ Request failed (attempt ${i+1}/${retries}):`, error);
             lastError = error;
             if (i === retries - 1) break;
             
             // Exponential backoff
-            await new Promise(resolve => 
-                setTimeout(resolve, Math.min(1000 * Math.pow(2, i), 5000))
-            );
+            const backoffTime = Math.min(1000 * Math.pow(2, i), 5000);
+            console.log(`⏱️ Backing off for ${backoffTime}ms before retry`);
+            await new Promise(resolve => setTimeout(resolve, backoffTime));
         }
     }
     

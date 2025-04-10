@@ -9,27 +9,49 @@ const morgan = require('morgan'); // Add logging middleware
 const app = express();
 const PORT = process.env.PORT || 3000; // Match port with frontend expectations
 
-// Add request logging
-app.use(morgan('dev'));
+// Enhanced logging for requests with connection details
+app.use(morgan((tokens, req, res) => {
+  const status = tokens.status(req, res);
+  const statusColor = status >= 500 ? '31' : status >= 400 ? '33' : status >= 300 ? '36' : '32';
+  
+  return [
+    '\n🔄 ',
+    `\x1b[36m${tokens.method(req, res)}\x1b[0m`,
+    `\x1b[${statusColor}m${status}\x1b[0m`,
+    `\x1b[0m${tokens.url(req, res)}\x1b[0m`,
+    `\x1b[33m${tokens['response-time'](req, res)} ms\x1b[0m`,
+    `\x1b[33m${tokens.res(req, res, 'content-length') || '-'}\x1b[0m`,
+    `\x1b[36m${tokens['remote-addr'](req, res)}\x1b[0m`,
+    `\x1b[90m${tokens['user-agent'](req, res)}\x1b[0m`,
+  ].join(' ');
+}));
 
-// Configure CORS - allow all origins
+// Configure CORS - allow all origins with logging
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+app.use((req, res, next) => {
+  console.log(`🌐 CORS request from origin: ${req.headers.origin || 'Unknown'}`);
+  next();
+});
 
 // Parse JSON bodies
 app.use(express.json());
 
 // Database configuration
-const DB_PATH = path.join(__dirname, '../backend/data/shopee-analytics.db');
+const DB_PATH = path.join(__dirname, './data/shopee-analytics.db');
 const dataDir = path.dirname(DB_PATH);
+
+console.log('💾 Database configuration:');
+console.log(`📁 DB_PATH: ${DB_PATH}`);
+console.log(`📂 Data directory: ${dataDir}`);
 
 // Create data directory if it doesn't exist
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
-  console.log(`Created data directory at ${dataDir}`);
+  console.log(`📂 Created data directory at ${dataDir}`);
 }
 
 // Database connection
@@ -47,33 +69,54 @@ const openDb = () => {
   });
 };
 
-// Health check endpoint - both with and without api prefix for flexibility
-app.get(['/health', '/api/health'], async (req, res) => {
+// Enhanced health endpoint with detailed info
+app.get(['/health', '/api/health'], (req, res) => {
   try {
-    const db = await openDb();
-    db.get('SELECT 1', [], (err, row) => {
-      db.close();
+    const db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READONLY, (err) => {
       if (err) {
-        res.status(500).json({
+        console.error(`❌ Database connection error: ${err.message}`);
+        return res.status(500).json({
           status: 'error',
           timestamp: new Date().toISOString(),
-          database: `error: ${err.message}`,
+          database_status: 'disconnected',
+          database_path: DB_PATH,
+          database_exists: fs.existsSync(DB_PATH),
+          database_error: err.message,
+          server_port: PORT,
           environment: process.env.NODE_ENV || 'development'
         });
       } else {
-        res.json({
+        db.close();
+        console.log('✅ Database health check: Connected successfully');
+        return res.json({
           status: 'ok',
           timestamp: new Date().toISOString(),
-          database: 'connected',
+          database_status: 'connected',
+          database_path: DB_PATH,
+          database_exists: true,
+          server_port: PORT,
+          api_base: `/api`,
+          available_endpoints: [
+            '/api/health',
+            '/api/products',
+            '/api/products/showcase',
+            '/api/categories',
+            '/api/categories/counts',
+            '/api/debug/database'
+          ],
           environment: process.env.NODE_ENV || 'development'
         });
       }
     });
   } catch (error) {
+    console.error(`❌ Health check error: ${error.message}`);
     res.status(500).json({
       status: 'error',
       timestamp: new Date().toISOString(),
-      database: `error: ${error.message}`,
+      database_status: 'unknown',
+      database_path: DB_PATH,
+      database_error: error.message,
+      server_port: PORT,
       environment: process.env.NODE_ENV || 'development'
     });
   }
@@ -356,11 +399,17 @@ app.get('/', (req, res) => {
   });
 });
 
-// Start the server
+// Starting the server with enhanced logging
 app.listen(PORT, () => {
-  console.log(`Node.js server running on port ${PORT}`);
-  console.log(`Database path: ${DB_PATH}`);
-  console.log(`Database exists: ${fs.existsSync(DB_PATH)}`);
-  console.log(`Access the API at http://localhost:${PORT}`);
-  console.log(`Frontend API base URL should be set to http://localhost:${PORT}`);
+  console.log('\n');
+  console.log('🚀 ===================================================');
+  console.log(`🚀 SENTINNELL API Server running at http://localhost:${PORT}`);
+  console.log('🚀 ===================================================');
+  console.log('📊 Server Information:');
+  console.log(`🔌 Port: ${PORT}`);
+  console.log(`📁 Database: ${DB_PATH}`);
+  console.log(`🌐 API Base: http://localhost:${PORT}/api`);
+  console.log(`🌐 API Documentation: http://localhost:${PORT}/docs`);
+  console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log('🚀 ===================================================\n');
 });
