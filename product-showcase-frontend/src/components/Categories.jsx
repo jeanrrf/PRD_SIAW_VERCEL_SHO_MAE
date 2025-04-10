@@ -1,88 +1,112 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+// Import React Icons
+import { 
+    FaLaptop, FaMobile, FaTshirt, FaUserTie, FaHome, 
+    FaBaby, FaSprayCan, FaRunning, FaGamepad, FaCar, FaTools 
+} from 'react-icons/fa';
 
-// Import categories directly from the local data
+// Updated categories data with icons instead of image URLs
 const categoriesData = [
     {
         "id": "100001",
         "name": "Eletrônicos",
-        "image_url": "https://cf.shopee.com.br/file/br-11134207-7qukw-lgztplve59sp78",
-        "productCount": 120
+        "icon": FaLaptop
     },
     {
         "id": "100006",
         "name": "Celulares e Acessórios",
-        "image_url": "https://cf.shopee.com.br/file/br-11134207-7qukw-lgztps4xbi9u0c",
-        "productCount": 85
+        "icon": FaMobile
     },
     {
         "id": "100018",
         "name": "Moda Feminina",
-        "image_url": "https://cf.shopee.com.br/file/sg-11134201-7qvdd-lf90155cqlf1c9",
-        "productCount": 93
+        "icon": FaTshirt
     },
     {
         "id": "100019",
         "name": "Moda Masculina",
-        "image_url": "https://cf.shopee.com.br/file/sg-11134201-7qvf2-lgxalikawrffb4",
-        "productCount": 76
+        "icon": FaUserTie
     },
     {
         "id": "100039",
         "name": "Casa e Decoração",
-        "image_url": "https://cf.shopee.com.br/file/sg-11134201-7qvcu-lf9011gm2rkdd3", 
-        "productCount": 68
+        "icon": FaHome
     },
     {
         "id": "100040",
         "name": "Bebês e Crianças",
-        "image_url": "https://cf.shopee.com.br/file/sg-11134201-7qvfg-lf900wwdgkux7c",
-        "productCount": 45
+        "icon": FaBaby
     },
     {
         "id": "100041",
         "name": "Beleza e Cuidado Pessoal",
-        "image_url": "https://cf.shopee.com.br/file/sg-11134201-7rbm2-los7hhkwcl1o49", 
-        "productCount": 77
+        "icon": FaSprayCan
     },
     {
         "id": "100042",
         "name": "Esporte e Lazer",
-        "image_url": "https://cf.shopee.com.br/file/br-11134207-7qvdr-lf8zzr4sjsf69c",
-        "productCount": 55
+        "icon": FaRunning
     },
     {
         "id": "100048",
         "name": "Jogos e Hobbies",
-        "image_url": "https://cf.shopee.com.br/file/br-11134207-7qvel-lf90000odf9v4e",
-        "productCount": 42
+        "icon": FaGamepad
     },
     {
         "id": "100049",
         "name": "Automotivo",
-        "image_url": "https://cf.shopee.com.br/file/br-11134207-7qve3-lf900065ai0v82",
-        "productCount": 38
+        "icon": FaCar
     },
     {
         "id": "100050",
         "name": "Ferramentas e Construção",
-        "image_url": "https://cf.shopee.com.br/file/sg-11134201-7qve0-lf900d7fwhw43f",
-        "productCount": 49
+        "icon": FaTools
     }
 ];
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
 
 const Categories = () => {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        // Simulate loading data
-        const timer = setTimeout(() => {
-            setCategories(categoriesData);
-            setLoading(false);
-        }, 500);
+        const fetchCategoriesWithCounts = async () => {
+            try {
+                // Fetch product counts for each category
+                const response = await fetch(`${API_BASE_URL}/categories/counts`);
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const categoryCounts = data.counts || {};
+                
+                // Merge counts with category data
+                const categoriesWithCounts = categoriesData.map(category => ({
+                    ...category,
+                    // Use real count from API or 0 if not available
+                    productCount: categoryCounts[category.id] || 0
+                }));
+                
+                setCategories(categoriesWithCounts);
+            } catch (err) {
+                console.error("Error fetching category counts:", err);
+                setError(err);
+                
+                // Fall back to categories without real counts
+                setCategories(categoriesData.map(category => ({
+                    ...category,
+                    productCount: 0
+                })));
+            } finally {
+                setLoading(false);
+            }
+        };
         
-        return () => clearTimeout(timer);
+        fetchCategoriesWithCounts();
     }, []);
 
     return (
@@ -95,9 +119,15 @@ const Categories = () => {
                     </span>
                 </h2>
                 
+                {/* Show error message if any */}
+                {error && (
+                    <div className="mb-4 p-3 bg-red-100 text-red-700 rounded text-center text-sm">
+                        Não foi possível carregar os contadores de produtos. Exibindo categorias sem contagem.
+                    </div>
+                )}
+                
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6" id="categories-list">
                     {loading ? (
-                        // Skeleton loading placeholders
                         <>
                             <div className="animate-pulse skeleton-card">
                                 <div className="bg-gray-200 rounded-lg h-32 flex flex-col items-center justify-center">
@@ -114,30 +144,28 @@ const Categories = () => {
                             ))}
                         </>
                     ) : (
-                        // Display actual categories
-                        categories.map(category => (
-                            <Link 
-                                to={`/category/${category.id}`} 
-                                key={category.id}
-                                className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden"
-                            >
-                                <div className="p-4 flex flex-col items-center text-center">
-                                    <div className="w-16 h-16 rounded-full overflow-hidden mb-3 bg-gray-100">
-                                        <img 
-                                            src={category.image_url} 
-                                            alt={category.name}
-                                            className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                                e.target.onerror = null;
-                                                e.target.src = `https://via.placeholder.com/64?text=${category.name.charAt(0)}`;
-                                            }}
-                                        />
+                        // Display actual categories with icons
+                        categories.map(category => {
+                            const IconComponent = category.icon;
+                            
+                            return (
+                                <Link 
+                                    to={`/category/${category.id}`} 
+                                    key={category.id}
+                                    className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden"
+                                >
+                                    <div className="p-4 flex flex-col items-center text-center">
+                                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                                            <IconComponent size={32} className="text-primary" />
+                                        </div>
+                                        <h3 className="text-lg font-semibold mb-1">{category.name}</h3>
+                                        <p className="text-sm text-gray-500">
+                                            {category.productCount} {category.productCount === 1 ? 'produto' : 'produtos'}
+                                        </p>
                                     </div>
-                                    <h3 className="text-lg font-semibold mb-1">{category.name}</h3>
-                                    <p className="text-sm text-gray-500">{category.productCount} produtos</p>
-                                </div>
-                            </Link>
-                        ))
+                                </Link>
+                            );
+                        })
                     )}
                 </div>
             </div>
