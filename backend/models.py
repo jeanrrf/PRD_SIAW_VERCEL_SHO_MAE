@@ -43,19 +43,24 @@ class Product(Base):
     item_status = Column(String)
     discount = Column(String)
 
+# Caminho do banco de dados SQLite
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'shopee-analytics.db')
+logger.info(f"Models SQLite database path: {DB_PATH}")
+
 # Criar o engine e as tabelas apenas em desenvolvimento
 # Na Vercel, não criamos tabelas, pois o banco de dados é somente leitura
 if not os.environ.get('VERCEL_ENV'):
     try:
-        engine = create_engine('sqlite:///shopee-analytics.db', pool_pre_ping=True)
+        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+        engine = create_engine(f'sqlite:///{DB_PATH}', pool_pre_ping=True)
         Base.metadata.create_all(engine)
         logger.info("Database tables created successfully")
     except Exception as e:
         logger.error(f"Error creating database tables: {str(e)}")
 else:
-    # In Vercel, just define the engine for reading
-    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'shopee-analytics.db')
-    engine = create_engine(f'sqlite:///{DB_PATH}', pool_pre_ping=True, 
+    # In Vercel, just define the engine for reading with URI mode enabled
+    engine = create_engine(f'sqlite:///{DB_PATH}?mode=ro&uri=true', 
+                          pool_pre_ping=True,
                           connect_args={'check_same_thread': False})
     logger.info(f"Vercel read-only database configured at {DB_PATH}")
     

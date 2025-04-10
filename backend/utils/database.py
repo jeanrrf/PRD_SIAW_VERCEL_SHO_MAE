@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 # Caminho do banco de dados SQLite
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'shopee-analytics.db')
+logger.info(f"SQLite database path: {DB_PATH}")
 
 # Verificar se o diretório existe, se não, criar
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -32,14 +33,19 @@ os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 engine_args = {
     'pool_pre_ping': True,  # Verify connection before use
     'pool_recycle': 3600,   # Recycle connections after 1 hour
-    'connect_args': {'timeout': 15}  # Connection timeout
+    'connect_args': {
+        'timeout': 15,      # Connection timeout
+        'check_same_thread': False  # Allow usage across threads for serverless functions
+    }
 }
 
 if os.environ.get('VERCEL_ENV'):
-    # Read-only connection for Vercel
-    engine = create_engine(f'sqlite:///{DB_PATH}', **engine_args)
+    # Read-only connection for Vercel with URI mode enabled
+    engine = create_engine(f'sqlite:///{DB_PATH}?mode=ro&uri=true', **engine_args)
+    logger.info(f"Initialized read-only SQLite engine for Vercel at {DB_PATH}")
 else:
     engine = create_engine(f'sqlite:///{DB_PATH}', **engine_args)
+    logger.info("Initialized standard SQLite engine for development")
 
 # Create a local session to interact with the database
 SessionLocal = sessionmaker(bind=engine)
@@ -216,5 +222,5 @@ async def get_products(filters=None, sort_by='created_at', limit=None):
         logger.error(f"Erro ao buscar produtos: {e}")
         return []
     finally:
-        if conn:
+        if 'conn' in locals() and conn:
             conn.close()

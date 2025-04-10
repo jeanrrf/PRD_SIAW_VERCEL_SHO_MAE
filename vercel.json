@@ -5,55 +5,51 @@
       "src": "api/index.py",
       "use": "@vercel/python",
       "config": { "runtime": "python3.9" }
-    },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     },
     {
       "src": "/db/(.*)",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     },
     {
       "src": "/product/(.*)",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     },
     {
       "src": "/cached/(.*)",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     },
     {
       "src": "/categories",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     },
     {
       "src": "/offers",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     },
     {
       "src": "/test-offers",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     },
     {
       "src": "/graphql",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     },
     {
       "src": "/search",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     },
     {
       "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "dest": "/public/$1"
+      "dest": "/api/index.py"
     }
   ],
   "env": {

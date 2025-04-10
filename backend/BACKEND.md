@@ -2,13 +2,13 @@
 
 ## Visão Geral
 
-O backend do SENTINNELL Analytics é um sistema construído com Python e Flask, que gerencia dados de produtos da Shopee através de uma API RESTful. O sistema é projetado para ser implantado na Vercel, com um banco de dados SQLite em modo somente leitura para ambiente de produção.
+O backend do SENTINNELL Analytics é um sistema construído com Python e FastAPI, que gerencia dados de produtos da Shopee através de uma API RESTful. O sistema é projetado para ser implantado na Vercel, com um banco de dados SQLite em modo somente leitura para ambiente de produção.
 
 ## Arquitetura
 
 ### Componentes Principais
 
-1. **API RESTful (Flask)**: Gerencia requisições HTTP e fornece endpoints para o frontend.
+1. **API RESTful (FastAPI)**: Gerencia requisições HTTP e fornece endpoints para o frontend.
 2. **Banco de Dados SQLite**: Armazenamento de dados permanente, em modo somente leitura em produção.
 3. **ORM SQLAlchemy**: Mapeamento objeto-relacional para interações com o banco de dados.
 4. **API Shopee Affiliate**: Integração com a API da Shopee para busca de produtos.
@@ -21,13 +21,16 @@ backend/
 ├── utils/                  # Módulos utilitários
 │   ├── database.py         # Funções de interação com banco de dados
 │   └── datetime_utils.py   # Utilitários para manipulação de datas
-├── api.py                  # API principal do Flask
+├── fastapi_app.py          # API principal do FastAPI
 ├── models.py               # Definições de modelos SQLAlchemy
 ├── migrate.py              # Scripts de migração do banco de dados
 ├── shopee_affiliate_auth.py # Autenticação e interação com API Shopee
 ├── CATEGORIA.json          # Definições de categorias
 └── BACKEND.md              # Esta documentação
 ```
+
+api/
+└── index.py                # Handler Serverless para Vercel
 
 ## Banco de Dados
 
@@ -69,7 +72,7 @@ A principal entidade do sistema é o `Product`, que contém informações detalh
 ### Pré-requisitos
 
 - Python 3.9+
-- Requirements: Flask, SQLAlchemy, Pydantic, FastAPI
+- Requirements: FastAPI, SQLAlchemy, Pydantic, Mangum
 - Banco de dados SQLite pré-populado
 
 ### Processo de Implantação na Vercel
@@ -81,10 +84,9 @@ A principal entidade do sistema é o `Product`, que contém informações detalh
    - Verifique se o banco de dados não excede 50MB (limite recomendado para Vercel)
 
 2. **Configuração da Vercel**:
-   - Use o arquivo `vercel.json` na raiz do projeto com as configurações adequadas
-   - Certifique-se que as rotas e build estejam configurados corretamente
-   - Configure o ambiente Python 3.9 no `vercel.json`
-   - Aumente o timeout das funções se necessário para lidar com consultas longas
+   - O arquivo `vercel.json` na raiz do projeto define as rotas e configuração
+   - O runtime é configurado para Python 3.9
+   - A função serverless tem timeout aumentado para lidar com consultas longas
 
 3. **Ambiente de Produção**:
    - O sistema detecta automaticamente o ambiente Vercel através da variável `VERCEL_ENV`
@@ -92,6 +94,7 @@ A principal entidade do sistema é o `Product`, que contém informações detalh
    - Logs são configurados para maximizar a visibilidade na dashboard da Vercel
 
 4. **Otimizações para Serverless**:
+   - Mangum converte FastAPI para interface ASGI compatível com serverless
    - Conexões de banco de dados são otimizadas para ambiente serverless
    - Configurações PRAGMA adicionadas para melhor gerenciamento de conexões
    - Mecanismo de retry implementado para lidar com erros transientes
@@ -129,14 +132,11 @@ vercel --prod
 ### Comandos Úteis
 
 ```bash
-# Rodar migrações do banco de dados
-python backend/migrate.py
-
-# Iniciar servidor local
-python api/index.py
+# Rodar servidor local
+uvicorn api.index:app --reload
 
 # Verificar saúde da API
-curl http://localhost:5000/api/health
+curl http://localhost:8000/api/health
 ```
 
 ### Problemas Comuns
