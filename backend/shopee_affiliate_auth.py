@@ -45,7 +45,7 @@ from typing import Dict, Any, Optional, List, Union
 # Configurar logging
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levellevel)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
@@ -773,19 +773,18 @@ async def save_product(data: dict):
 @app.get("/db/products/category/{category_id}")
 async def get_products_by_category(category_id: str):
     """Get products by category ID from local database"""
+    conn = sqlite3.connect('shopee-analytics.db')
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
     try:
-        conn = sqlite3.connect('shopee-analytics.db')
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM products WHERE category_id = ?", (category_id,))
+        cursor.execute("SELECT * FROM products WHERE category_id = ? ORDER BY created_at DESC LIMIT 100", (category_id,))
         products = [dict(row) for row in cursor.fetchall()]
-        
-        conn.close()
         return products
     except Exception as e:
-        logger.error(f"Error fetching products by category {category_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error getting products by category: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar produtos por categoria: {str(e)}")
+    finally:
+        conn.close()
 
 @app.get("/db/products/search")
 async def search_db_products(q: str = None):

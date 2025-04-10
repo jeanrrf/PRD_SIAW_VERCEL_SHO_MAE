@@ -91,17 +91,3 @@ export const checkDatabaseConnection = async () => {
         };
     }
 };
-
-export const fetchProductsByCategory = async (categoryId) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/products/category/${categoryId}`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error('Error fetching products by category:', error);
-        throw error;
-    }
-};
