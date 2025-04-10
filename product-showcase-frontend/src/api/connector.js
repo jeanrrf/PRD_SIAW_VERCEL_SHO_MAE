@@ -3,19 +3,24 @@
 // Update API_BASE_URL to use port 8001 to match the backend server port
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8001/api';
 
-export const fetchProducts = async (categoryId = null, page = 1, limit = 24) => {
+export const fetchProducts = async (categoryId = null, page = 1, filters = {}) => {
     try {
-        const categoryParam = categoryId ? `&category=${categoryId}` : '';
-        const response = await fetch(
-            `${API_BASE_URL}/products?page=${page}&limit=${limit}${categoryParam}`
-        );
+        const params = new URLSearchParams({
+            page: page.toString(),
+            limit: '24',
+            ...(categoryId && { category: categoryId }),
+            ...(filters.sort && { sort: filters.sort }),
+            ...(filters.priceRange && { price_range: filters.priceRange }),
+            ...(filters.searchTerm && { search: filters.searchTerm })
+        });
+
+        const response = await fetch(`${API_BASE_URL}/products?${params}`);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const data = await response.json();
-        console.log('API Response:', data);
         return data;
     } catch (error) {
         console.error('Error fetching products:', error);

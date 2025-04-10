@@ -1,103 +1,98 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import ProductCard from '../components/ProductCard';
+import React, { useState, useEffect } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 import { fetchProducts } from '../api/connector';
+import ProductCard from '../components/ProductCard';
+import Layout from '../components/Layout';
 
 const CategoryPage = () => {
-    const { id } = useParams();
-    const navigate = useNavigate();
+    const { categoryId } = useParams();
+    const location = useLocation();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(true);
-    const [categoryName, setCategoryName] = useState('');
+    const [filters, setFilters] = useState({
+        sort: '',
+        priceRange: '',
+        searchTerm: ''
+    });
 
-    const loadProducts = async (currentPage = 1) => {
+    useEffect(() => {
+        loadProducts();
+    }, [categoryId, filters]);
+
+    const loadProducts = async () => {
         try {
             setLoading(true);
-            const data = await fetchProducts(id, currentPage);
-            
-            if (currentPage === 1) {
-                setProducts(data.products);
-            } else {
-                setProducts(prev => [...prev, ...data.products]);
-            }
-            
-            setHasMore(data.products.length === 24); // Se recebeu menos que o limite, não tem mais
+            setError(null);
+            const data = await fetchProducts(categoryId, 1, filters);
+            setProducts(data.products || []);
         } catch (err) {
-            setError(err);
+            setError(err.message);
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-        setPage(1);
-        loadProducts(1);
-    }, [id]);
-
-    const loadMore = () => {
-        const nextPage = page + 1;
-        setPage(nextPage);
-        loadProducts(nextPage);
-    };
-
-    // Add effect to get category name based on ID
-    useEffect(() => {
-        // Could fetch category name from API or use a mapping
-        const categoryNames = {
-            '100001': 'Eletrônicos',
-            '100006': 'Celulares e Acessórios',
-            '100018': 'Moda Feminina',
-            '100019': 'Moda Masculina',
-            '100039': 'Casa e Decoração',
-            '100040': 'Bebês e Crianças',
-            '100041': 'Beleza e Cuidado Pessoal',
-            '100042': 'Esporte e Lazer',
-            '100048': 'Jogos e Hobbies',
-            '100049': 'Automotivo',
-            '100050': 'Ferramentas e Construção'
-        };
-        
-        setCategoryName(categoryNames[id] || `Categoria ${id}`);
-    }, [id]);
-
     return (
-        <div className="container mx-auto px-4 py-8">
-            <h2 className="text-3xl font-bold mb-8">
-                Produtos em: {categoryName}
-            </h2>
-            
-            {loading && page === 1 ? (
-                <div>Carregando...</div>
-            ) : error ? (
-                <div>Erro: {error.message}</div>
-            ) : (
-                <>
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {products.map(product => (
-                            <ProductCard 
-                                key={`product-${product.id || product.shopee_id}`} 
-                                product={product} 
-                            />
-                        ))}
-                    </div>
+        <Layout>
+            <div className="container mx-auto px-4 py-8">
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold mb-4">
+                        {location.state?.categoryName || 'Produtos da Categoria'}
+                    </h1>
                     
-                    {hasMore && (
-                        <div className="text-center mt-8">
-                            <button
-                                onClick={loadMore}
-                                disabled={loading}
-                                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                    {/* Filters Section */}
+                    <div className="bg-white p-4 rounded-lg shadow mb-6">
+                        <div className="flex flex-wrap gap-4">
+                            <select 
+                                value={filters.sort}
+                                onChange={(e) => setFilters({...filters, sort: e.target.value})}
+                                className="border rounded p-2"
                             >
-                                {loading ? 'Carregando...' : 'Carregar mais'}
-                            </button>
+                                <option value="">Ordenar por</option>
+                                <option value="price_asc">Menor Preço</option>
+                                <option value="price_desc">Maior Preço</option>
+                                <option value="name_asc">A-Z</option>
+                                <option value="name_desc">Z-A</option>
+                            </select>
+
+                            <select
+                                value={filters.priceRange}
+                                onChange={(e) => setFilters({...filters, priceRange: e.target.value})}
+                                className="border rounded p-2"
+                            >
+                                <option value="">Faixa de Preço</option>
+                                <option value="0-50">Até R$ 50</option>
+                                <option value="50-100">R$ 50 - R$ 100</option>
+                                <option value="100-200">R$ 100 - R$ 200</option>
+                                <option value="200+">Acima de R$ 200</option>
+                            </select>
                         </div>
+                    </div>
+                </div>
+
+                {/* Products Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {loading ? (
+                        <div className="col-span-full text-center py-8">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                        </div>
+                    ) : error ? (
+                        <div className="col-span-full text-center text-red-500 py-8">
+                            {error}
+                        </div>
+                    ) : products.length === 0 ? (
+                        <div className="col-span-full text-center text-gray-500 py-8">
+                            Nenhum produto encontrado nesta categoria.
+                        </div>
+                    ) : (
+                        products.map((product) => (
+                            <ProductCard key={product.id} product={product} />
+                        ))
                     )}
-                </>
-            )}
-        </div>
+                </div>
+            </div>
+        </Layout>
     );
 };
 
