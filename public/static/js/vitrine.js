@@ -608,3 +608,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Erro ao inicializar a página:', error);
     }
 });
+
+// Add handling of produtos-destaque for search functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Create productos-destaque section if it doesn't exist (for search functionality)
+    if (!document.getElementById('produtos-destaque') && document.getElementById('search-form')) {
+        const productsContainer = document.createElement('div');
+        productsContainer.id = 'produtos-destaque';
+        productsContainer.innerHTML = `
+            <h2 class="text-3xl font-bold text-center mb-12 relative">
+                <span class="inline-block relative">
+                    Resultados da Busca
+                    <span class="absolute bottom-0 left-0 w-full h-1 bg-accent transform translate-y-2"></span>
+                </span>
+            </h2>
+            <div id="featured-products" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+        `;
+        
+        // Insert after recentes section
+        const recentesSection = document.getElementById('recentes');
+        if (recentesSection) {
+            recentesSection.parentNode.insertBefore(productsContainer, recentesSection.nextSibling);
+        } else {
+            document.body.appendChild(productsContainer);
+        }
+    }
+});
