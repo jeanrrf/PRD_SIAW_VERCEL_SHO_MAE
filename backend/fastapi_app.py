@@ -424,22 +424,73 @@ async def forward_to_shopee_auth(endpoint: str, request: Request):
     """
     from backend.shopee_affiliate_auth import app as shopee_app
     
+    logger.debug(f"Received request for endpoint: /{endpoint}")
+    
+    # Handle root path
+    if endpoint == "":
+        # Serve API documentation/welcome page for root path
+        return {
+            "message": "SENTINNELL Analytics API",
+            "status": "online",
+            "documentation": "/docs",
+            "available_endpoints": {
+                "API endpoints": [
+                    "/api/health",
+                    "/api/products",
+                    "/api/products/search",
+                    "/api/categories",
+                    "/api/search",
+                ],
+                "Legacy endpoints": [
+                    "/health",
+                    "/categories",
+                    "/db/products",
+                    "/db/offers",
+                    "/product/{item_id}",
+                ]
+            }
+        }
+    
+    # Strip 'api/' prefix if it exists to match internal endpoints
+    if endpoint.startswith("api/"):
+        endpoint = endpoint[4:]
+        logger.debug(f"Stripped 'api/' prefix. New endpoint: /{endpoint}")
+    
     # Only forward known endpoints from shopee_affiliate_auth
     allowed_endpoints = [
         "db/products", "db/offers", "cached/products", "categories", 
-        "test-offers", "offers", "product", "db/products-with-category-issues"
+        "test-offers", "offers", "product", "db/products-with-category-issues",
+        "health", "products", "products/search", "products/category"
     ]
     
-    if endpoint in allowed_endpoints or endpoint.startswith("product/"):
+    # Check if the path or its start matches any allowed endpoint
+    matches = [allowed for allowed in allowed_endpoints if endpoint == allowed or endpoint.startswith(f"{allowed}/")]
+    
+    if matches:
         try:
-            # Use the router from the shopee_app
+            # Log the matching endpoint for debugging
+            logger.debug(f"Matching endpoint found: {matches[0]}")
+            
+            # Use the router from the shopee_app by reconstructing the path
             for route in shopee_app.routes:
-                if route.path == f"/{endpoint}":
+                # Get the route path pattern from the route
+                route_path = route.path
+                
+                # Check if the incoming request matches this route
+                if route_path == f"/{endpoint}" or (
+                    route_path.endswith("/{item_id}") and 
+                    endpoint.startswith(route_path.split("/{")[0].lstrip("/"))
+                ):
+                    logger.debug(f"Forwarding to route: {route_path}")
                     return await route.endpoint(request)
             
-            raise HTTPException(status_code=404, detail=f"Endpoint /{endpoint} not found")
+            # If no matching route is found in the shopee_app
+            logger.warning(f"No matching route found for endpoint /{endpoint}")
+            raise HTTPException(status_code=404, detail=f"Endpoint /{endpoint} not found in the shopee API")
+            
         except Exception as e:
-            logger.error(f"Error forwarding request to /{endpoint}: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+            logger.error(f"Error forwarding request to /{endpoint}: {str(e)}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
     else:
-        raise HTTPException(status_code=404, detail=f"Endpoint /{endpoint} not found")
+        logger.warning(f"Endpoint not in allowed list: /{endpoint}")
+        raise HTTPException(status_code=404, detail=f"Endpoint /{endpoint} not found or not allowed")

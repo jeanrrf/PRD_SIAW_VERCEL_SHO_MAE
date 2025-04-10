@@ -86,78 +86,93 @@ except ValueError as e:
 
 # Initialize SQLite database
 def init_db():
-    conn = sqlite3.connect('shopee-analytics.db')
-    cursor = conn.cursor()
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS offers (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        offer_name TEXT,
-        commission_rate REAL,
-        image_url TEXT,
-        offer_link TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    ''')
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS categories (
-        id VARCHAR PRIMARY KEY,
-        name TEXT NOT NULL,
-        level INTEGER
-    )
-    ''')
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS products (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        shopee_id VARCHAR UNIQUE NOT NULL,
-        name VARCHAR,
-        price FLOAT,
-        original_price FLOAT,
-        category_id INTEGER,
-        shop_id INTEGER,
-        stock INTEGER,
-        commission_rate FLOAT,
-        sales INTEGER,
-        image_url VARCHAR,
-        shop_name VARCHAR,
-        offer_link VARCHAR,
-        short_link VARCHAR,
-        rating_star FLOAT,
-        price_discount_rate FLOAT,
-        sub_ids VARCHAR,
-        product_link TEXT,
-        period_start_time DATETIME,
-        period_end_time DATETIME,
-        shop_type VARCHAR,
-        seller_commission_rate FLOAT,
-        shopee_commission_rate FLOAT,
-        affiliate_link VARCHAR,
-        product_metadata TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP,
-        item_status VARCHAR,
-        discount VARCHAR
-    )
-    ''')
+    db_path = 'shopee-analytics.db'
     
-    # Load categories from CATEGORIA.json and populate categories table
+    # Check if database file exists and log its location
+    if os.path.exists(db_path):
+        logger.info(f"SQLite database found at: {os.path.abspath(db_path)}")
+    else:
+        logger.warning(f"SQLite database not found at: {os.path.abspath(db_path)}. Will attempt to create it.")
+    
     try:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        categories_path = os.path.join(current_dir, 'CATEGORIA.json')
-        with open(categories_path, 'r', encoding='utf-8') as f:
-            categories = json.load(f)
-            
-        # Insert or update categories
-        for category in categories:
-            cursor.execute("""
-                INSERT OR REPLACE INTO categories (id, name, level)
-                VALUES (?, ?, ?)
-            """, (category['id'], category['name'], category['level']))
-            
-    except Exception as e:
-        logger.error(f"Error loading categories: {str(e)}")
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS offers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            offer_name TEXT,
+            commission_rate REAL,
+            image_url TEXT,
+            offer_link TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS categories (
+            id VARCHAR PRIMARY KEY,
+            name TEXT NOT NULL,
+            level INTEGER
+        )
+        ''')
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            shopee_id VARCHAR UNIQUE NOT NULL,
+            name VARCHAR,
+            price FLOAT,
+            original_price FLOAT,
+            category_id INTEGER,
+            shop_id INTEGER,
+            stock INTEGER,
+            commission_rate FLOAT,
+            sales INTEGER,
+            image_url VARCHAR,
+            shop_name VARCHAR,
+            offer_link VARCHAR,
+            short_link VARCHAR,
+            rating_star FLOAT,
+            price_discount_rate FLOAT,
+            sub_ids VARCHAR,
+            product_link TEXT,
+            period_start_time DATETIME,
+            period_end_time DATETIME,
+            shop_type VARCHAR,
+            seller_commission_rate FLOAT,
+            shopee_commission_rate FLOAT,
+            affiliate_link VARCHAR,
+            product_metadata TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP,
+            item_status VARCHAR,
+            discount VARCHAR
+        )
+        ''')
         
-    conn.commit()
-    conn.close()
+        # Load categories from CATEGORIA.json and populate categories table
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            categories_path = os.path.join(current_dir, 'CATEGORIA.json')
+            with open(categories_path, 'r', encoding='utf-8') as f:
+                categories = json.load(f)
+                
+            # Insert or update categories
+            for category in categories:
+                cursor.execute("""
+                    INSERT OR REPLACE INTO categories (id, name, level)
+                    VALUES (?, ?, ?)
+                """, (category['id'], category['name'], category['level']))
+                
+        except Exception as e:
+            logger.error(f"Error loading categories: {str(e)}")
+            
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        logger.error(f"SQLite error in init_db: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in init_db: {str(e)}")
+        raise
 
 # Initialize database
 init_db()
@@ -809,6 +824,73 @@ async def get_products_with_category_issues():
     products = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return products
+
+@app.get("/health")
+async def health_check():
+    """Endpoint para verificar a saúde do sistema"""
+    # Check database connection
+    try:
+        conn = sqlite3.connect('shopee-analytics.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        db_status = "connected"
+        conn.close()
+    except Exception as e:
+        logger.error(f"Database connection error: {str(e)}")
+        db_status = f"error: {str(e)}"
+    
+    return {
+        "status": "ok", 
+        "timestamp": datetime.now().isoformat(),
+        "environment": os.environ.get('VERCEL_ENV', 'development'),
+        "database": db_status
+    }
+
+@app.get("/products")
+async def get_showcase_products():
+    """Get products for the showcase from the database"""
+    try:
+        conn = sqlite3.connect('shopee-analytics.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Obter produtos mais recentes com imagens válidas
+        cursor.execute("""
+            SELECT 
+                id, shopee_id, name AS product_name, price, original_price,
+                image_url, shop_name, shop_id, commission_rate, 
+                offer_link, rating_star, price_discount_rate, sales
+            FROM products 
+            WHERE image_url IS NOT NULL AND image_url != ''
+            ORDER BY created_at DESC
+            LIMIT 12
+        """)
+        
+        products = [dict(row) for row in cursor.fetchall()]
+        
+        # Para cada produto, calcule alguns campos adicionais úteis para a vitrine
+        for product in products:
+            # Calcular desconto
+            if product.get('original_price') and product.get('price'):
+                discount = round(100 - (product['price'] / product['original_price'] * 100))
+                product['discount_percent'] = discount if discount > 0 else 0
+            else:
+                product['discount_percent'] = 0
+                
+            # Formatar preço
+            if 'price' in product:
+                product['formatted_price'] = f"R$ {product['price']:.2f}".replace('.', ',')
+                
+            # Converter comissão para percentual
+            if 'commission_rate' in product:
+                product['commission_percent'] = round(product['commission_rate'] * 100, 1)
+                
+        conn.close()
+        return {"products": products}
+        
+    except Exception as e:
+        logger.error(f"Error getting showcase products: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import argparse

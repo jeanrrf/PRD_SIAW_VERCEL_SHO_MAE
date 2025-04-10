@@ -47,6 +47,15 @@ class Product(Base):
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'shopee-analytics.db')
 logger.info(f"Models SQLite database path: {DB_PATH}")
 
+# Ensure the data directory exists
+data_dir = os.path.dirname(DB_PATH)
+if not os.path.exists(data_dir):
+    try:
+        os.makedirs(data_dir, exist_ok=True)
+        logger.info(f"Created data directory at {data_dir}")
+    except Exception as e:
+        logger.error(f"Failed to create data directory: {e}")
+
 # Criar o engine e as tabelas apenas em desenvolvimento
 # Na Vercel, não criamos tabelas, pois o banco de dados é somente leitura
 if not os.environ.get('VERCEL_ENV'):
@@ -59,13 +68,28 @@ if not os.environ.get('VERCEL_ENV'):
         logger.error(f"Error creating database tables: {str(e)}")
 else:
     # In Vercel, just define the engine for reading with URI mode enabled
-    engine = create_engine(f'sqlite:///{DB_PATH}?mode=ro&uri=true', 
-                          pool_pre_ping=True,
-                          connect_args={'check_same_thread': False})
-    logger.info(f"Vercel read-only database configured at {DB_PATH}")
-    
-    # Check if database file exists
-    if not os.path.exists(DB_PATH):
-        logger.error(f"Database file not found at {DB_PATH}. This will cause failures in production.")
-    else:
-        logger.info(f"Database file verified at {DB_PATH}")
+    try:
+        # First check if the file exists
+        if not os.path.exists(DB_PATH):
+            logger.error(f"Database file not found at {DB_PATH}. This will cause failures in production.")
+            # Try to create an empty database file if possible
+            try:
+                with open(DB_PATH, 'w') as f:
+                    pass
+                logger.info(f"Created empty database file at {DB_PATH}")
+            except Exception as e:
+                logger.error(f"Failed to create empty database file: {e}")
+        else:
+            logger.info(f"Database file verified at {DB_PATH}")
+        
+        engine = create_engine(
+            f'sqlite:///{DB_PATH}?mode=ro&uri=true', 
+            pool_pre_ping=True,
+            connect_args={'check_same_thread': False}
+        )
+        logger.info(f"Vercel read-only database configured at {DB_PATH}")
+    except Exception as e:
+        logger.error(f"Failed to configure database engine: {e}")
+        # Fallback to in-memory database in case of failure
+        engine = create_engine('sqlite:///:memory:', pool_pre_ping=True)
+        logger.warning("Using in-memory database as fallback!")
