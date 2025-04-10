@@ -193,8 +193,8 @@ app.get(['/products', '/api/products'], async (req, res) => {
   try {
     const db = await openDb();
     
-    // Get parameters from request
-    const limit = parseInt(req.query.limit) || 12;
+    // Get parameters from request - set limit muito alto para mostrar todos os produtos
+    const limit = parseInt(req.query.limit) || 1000;
     const page = parseInt(req.query.page) || 1;
     const offset = (page - 1) * limit;
     
@@ -211,7 +211,7 @@ app.get(['/products', '/api/products'], async (req, res) => {
     const sql = `
       SELECT 
         id, shopee_id, name AS product_name, price, original_price,
-        image_url, shop_name, shop_id, commission_rate, 
+        image_url, shop_name, shop_id, commission_rate, category_id, category_name,
         offer_link, rating_star, price_discount_rate, sales
       FROM products 
       ${whereClause}

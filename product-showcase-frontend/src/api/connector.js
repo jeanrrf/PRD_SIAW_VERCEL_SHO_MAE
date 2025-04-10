@@ -140,14 +140,14 @@ export const fetchProducts = async (categoryId = null, page = 1, filters = {}) =
     try {
         const params = new URLSearchParams({
             page: page.toString(),
-            limit: '24',
+            limit: '1000', // Aumentar para mostrar todos os produtos
             ...(categoryId && { category: categoryId }),
             ...(filters.sort && { sort: filters.sort }),
             ...(filters.priceRange && { price_range: filters.priceRange }),
             ...(filters.searchTerm && { search: filters.searchTerm })
         });
 
-        const response = await fetch(`${API_BASE_URL}/products?${params}`);
+        const response = await fetchWithRetry(`${API_BASE_URL}/products?${params}`);
         const data = await response.json();
 
         if (!response.ok) {
@@ -163,7 +163,7 @@ export const fetchProducts = async (categoryId = null, page = 1, filters = {}) =
 
         return {
             products: data.products,
-            hasMore: data.products.length === 24,
+            hasMore: false, // Não precisamos de paginação já que estamos exibindo tudo
             total: data.total || 0
         };
     } catch (error) {
