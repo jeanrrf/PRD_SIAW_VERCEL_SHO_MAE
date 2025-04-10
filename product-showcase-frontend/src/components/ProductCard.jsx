@@ -1,19 +1,20 @@
 import React from 'react';
+import styles from './ProductCard.module.css';
 
 const ProductCard = ({ product }) => {
     return (
-        <div className="bg-white rounded-lg shadow-md p-4">
+        <div className={styles.card}>
             <img 
                 src={product.image} 
                 alt={product.name || 'Produto'} 
-                className="w-full h-48 object-cover rounded-md" 
-                title={product.name} // Added title attribute for better accessibility
+                className={styles.image} 
+                title={product.name}
             />
-            <h3 className="text-lg font-semibold mt-2">{product.name}</h3>
-            <p className="text-gray-600">{product.description}</p>
-            <div className="flex justify-between items-center mt-4">
-                <span className="text-xl font-bold text-primary">{`$${product.price}`}</span>
-                <button className="bg-accent text-white py-2 px-4 rounded hover:bg-opacity-90 transition"
+            <h3 className={styles.title}>{product.name}</h3>
+            <p className={styles.description}>{product.description}</p>
+            <div className={styles.footer}>
+                <span className={styles.price}>{`$${product.price}`}</span>
+                <button className={styles.button}
                     aria-label={`Adicionar ${product.name || 'produto'} ao carrinho`}>
                     Adicionar ao Carrinho
                 </button>

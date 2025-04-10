@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import styles from './Categories.module.css';
 // Import React Icons
 import { 
     FaLaptop, FaMobile, FaTshirt, FaUserTie, FaHome, 
@@ -115,23 +116,23 @@ const Categories = () => {
     };
 
     return (
-        <section id="categorias" className="py-16 bg-gray-50">
-            <div className="container mx-auto px-4">
-                <h2 className="text-3xl font-bold text-center mb-12 relative">
-                    <span className="inline-block relative">
+        <section id="categorias" className={styles.section}>
+            <div className={styles.container}>
+                <h2 className={styles.title}>
+                    <span className={styles.titleWrapper}>
                         Explore por Categorias
-                        <span className="absolute bottom-0 left-0 w-full h-1 bg-accent transform translate-y-2"></span>
+                        <span className={styles.titleUnderline}></span>
                     </span>
                 </h2>
                 
                 {/* Show error message if any */}
                 {error && (
-                    <div className="mb-4 p-3 bg-red-100 text-red-700 rounded text-center text-sm">
+                    <div className={styles.error}>
                         Não foi possível carregar os contadores de produtos. Exibindo categorias sem contagem.
                     </div>
                 )}
                 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6" id="categories-list">
+                <div className={styles.grid} id="categories-list">
                     {loading ? (
                         <>
                             <div className="animate-pulse skeleton-card">
