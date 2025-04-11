@@ -29,7 +29,8 @@ const useProducts = (options = {}) => {
                 setTotalProducts(data?.length || 0);
                 // Não temos status de fallback diretamente do fetchShowcaseProducts,
                 // então precisamos inferir baseado em características conhecidas
-                setIsUsingFallback(data && data.length > 0 && data[0].id?.startsWith('fb'));
+                setIsUsingFallback(data && data.length > 0 && data[0]?.id && 
+                    typeof data[0].id === 'string' && data[0].id.startsWith('fb'));
             } else {
                 data = await fetchProducts(categoryId, 1, filters);
                 setProducts(data.products || []);
