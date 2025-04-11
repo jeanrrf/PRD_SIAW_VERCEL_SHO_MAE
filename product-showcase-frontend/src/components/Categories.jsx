@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -6,7 +6,6 @@ import {
     FaBaby, FaSprayCan, FaRunning, FaGamepad, FaCar, 
     FaTools, FaHeadphones, FaCamera, FaUtensils, FaBookOpen 
 } from 'react-icons/fa';
-import { fetchCategoryIds } from '../api/connector';
 
 // Categorias modernizadas com ícones mais apropriados
 const categoriesData = [
@@ -30,36 +29,17 @@ const categoriesData = [
 const Categories = () => {
     const navigate = useNavigate();
     const [categories, setCategories] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const fetchCategoriesByIds = useCallback(async () => {
-        try {
-            setLoading(true);
-            setError(null);
-
-            const categoryIds = await fetchCategoryIds();
-
-            // Filtrar e mapear categorias com base nos IDs retornados
-            const filteredCategories = categoriesData.filter(category => 
-                categoryIds.includes(category.id)
-            );
-
-            setCategories(filteredCategories);
-        } catch (err) {
-            console.error('Erro ao carregar categorias:', err);
-            setError('Não foi possível carregar as categorias. Tente novamente mais tarde.');
-        } finally {
-            setLoading(false);
-        }
+    // Use o useEffect para inicializar as categorias diretamente
+    useEffect(() => {
+        // Usar diretamente as categorias pré-definidas
+        setCategories(categoriesData);
     }, []);
 
-    useEffect(() => {
-        fetchCategoriesByIds();
-    }, [fetchCategoriesByIds]);
-
     const handleCategoryClick = (categoryId) => {
-        navigate(`/category/${categoryId}`); // Certifique-se de que o ID da categoria está correto
+        navigate(`/category/${categoryId}`);
     };
 
     const handleSeeAllClick = () => {
@@ -84,18 +64,6 @@ const Categories = () => {
                         Ver Todas as Categorias
                     </button>
                 </div>
-
-                {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg mb-8">
-                        <p>{error}</p>
-                        <button 
-                            onClick={fetchCategoriesByIds}
-                            className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                        >
-                            Tentar novamente
-                        </button>
-                    </div>
-                )}
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     {loading ? (

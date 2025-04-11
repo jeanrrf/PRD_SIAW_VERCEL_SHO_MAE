@@ -1,9 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { fetchProducts, fetchCategories } from '../api/connector';
 import ProductCard from '../components/ProductCard';
 import Layout from '../components/Layout';
-import { FaFilter, FaSort, FaSearch, FaChevronLeft } from 'react-icons/fa';
+import { FaFilter, FaSort, FaSearch, FaChevronLeft, FaExclamationTriangle } from 'react-icons/fa';
+
+// Fallback categories when API fails
+const fallbackCategories = [
+    { id: '100001', name: 'Eletrônicos' },
+    { id: '100006', name: 'Celulares' },
+    { id: '100018', name: 'Moda Feminina' },
+    { id: '100019', name: 'Moda Masculina' },
+    { id: '100039', name: 'Casa e Decoração' },
+    { id: '100040', name: 'Bebês e Crianças' },
+    { id: '100041', name: 'Beleza' },
+    { id: '100042', name: 'Esporte e Lazer' },
+    { id: '100048', name: 'Games' },
+    { id: '100049', name: 'Automotivo' },
+    { id: '100050', name: 'Ferramentas' },
+    { id: '100051', name: 'Áudio' },
+    { id: '100052', name: 'Fotografia' },
+    { id: '100053', name: 'Cozinha' },
+    { id: '100054', name: 'Livros' },
+];
 
 const CategoryPage = () => {
     const { categoryId } = useParams();
@@ -13,7 +32,8 @@ const CategoryPage = () => {
     const [categories, setCategories] = useState([]);
     const [categoryName, setCategoryName] = useState('');
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [categoryError, setCategoryError] = useState(null);
+    const [productError, setProductError] = useState(null);
     const [filters, setFilters] = useState({
         sort: '',
         priceRange: '',
@@ -21,49 +41,71 @@ const CategoryPage = () => {
     });
     const [showFilters, setShowFilters] = useState(false);
     const [productCount, setProductCount] = useState(0);
+    const [usingFallbackCategories, setUsingFallbackCategories] = useState(false);
 
     // Carregar todas as categorias para navegação
-    useEffect(() => {
-        const loadCategories = async () => {
-            try {
-                const data = await fetchCategories();
-                setCategories(data);
-                
-                // Encontrar nome da categoria atual
-                const currentCategory = data.find(cat => cat.id === categoryId);
-                if (currentCategory) {
-                    setCategoryName(currentCategory.name);
-                } else if (categoryId === 'all') {
-                    setCategoryName('Todos os Produtos');
-                }
-            } catch (err) {
-                console.error('Erro ao carregar categorias:', err);
+    const loadCategories = useCallback(async () => {
+        try {
+            setCategoryError(null);
+            const data = await fetchCategories();
+            setCategories(data);
+            setUsingFallbackCategories(false);
+            
+            // Encontrar nome da categoria atual
+            const currentCategory = data.find(cat => cat.id === categoryId);
+            if (currentCategory) {
+                setCategoryName(currentCategory.name);
+            } else if (categoryId === 'all') {
+                setCategoryName('Todos os Produtos');
             }
-        };
-        
-        loadCategories();
+        } catch (err) {
+            console.error('Erro ao carregar categorias:', err);
+            setCategoryError(err.message || 'Erro ao carregar categorias');
+            
+            // Usar categorias de fallback locais
+            setCategories(fallbackCategories);
+            setUsingFallbackCategories(true);
+            
+            // Definir o nome da categoria com base nas categorias de fallback
+            if (categoryId !== 'all') {
+                const fallbackCategory = fallbackCategories.find(cat => cat.id === categoryId);
+                if (fallbackCategory) {
+                    setCategoryName(fallbackCategory.name);
+                } else {
+                    setCategoryName('Categoria');
+                }
+            } else {
+                setCategoryName('Todos os Produtos');
+            }
+        }
     }, [categoryId]);
 
     useEffect(() => {
-        const loadProducts = async () => {
-            try {
-                setLoading(true);
-                setError(null);
+        loadCategories();
+    }, [loadCategories]);
 
-                // Certifique-se de que o categoryId está sendo passado corretamente
-                const data = await fetchProducts(categoryId === 'all' ? null : categoryId, 1, filters);
-                setProducts(data.products || []);
-                setProductCount(data.total || 0);
-            } catch (err) {
-                console.error('Error loading products:', err);
-                setError(err.message || 'Failed to load products. Please try again later.');
-            } finally {
-                setLoading(false);
-            }
-        };
+    const loadProducts = useCallback(async () => {
+        try {
+            setLoading(true);
+            setProductError(null);
 
+            // Certifique-se de que o categoryId está sendo passado corretamente
+            const data = await fetchProducts(categoryId === 'all' ? null : categoryId, 1, filters);
+            setProducts(data.products || []);
+            setProductCount(data.total || 0);
+        } catch (err) {
+            console.error('Error loading products:', err);
+            setProductError(err.message || 'Falha ao carregar produtos. Tente novamente mais tarde.');
+            setProducts([]);
+            setProductCount(0);
+        } finally {
+            setLoading(false);
+        }
+    }, [categoryId, filters]);
+
+    useEffect(() => {
         loadProducts();
-    }, [categoryId, filters]); // Certifique-se de que o categoryId está no array de dependências
+    }, [loadProducts]);
 
     const handleSearchSubmit = (e) => {
         e.preventDefault();
@@ -99,13 +141,34 @@ const CategoryPage = () => {
                         >
                             <FaChevronLeft />
                         </button>
-                        <h1 className="text-3xl font-bold">{categoryName || 'Products'}</h1>
+                        <h1 className="text-3xl font-bold">{categoryName || 'Produtos'}</h1>
                     </div>
                     <p className="text-blue-100">
-                        {productCount} {productCount === 1 ? 'product found' : 'products found'}
+                        {productCount} {productCount === 1 ? 'produto encontrado' : 'produtos encontrados'}
                     </p>
                 </div>
             </div>
+
+            {usingFallbackCategories && (
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 m-4">
+                    <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                            <FaExclamationTriangle className="h-5 w-5 text-yellow-400" />
+                        </div>
+                        <div className="ml-3">
+                            <p className="text-sm text-yellow-700">
+                                Usando dados locais devido a um erro de conexão com o servidor. Algumas funcionalidades podem estar limitadas.
+                                <button
+                                    className="ml-2 font-medium text-yellow-700 underline"
+                                    onClick={loadCategories}
+                                >
+                                    Tentar novamente
+                                </button>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="container mx-auto px-4 py-8">
                 {/* Menu de categorias */}
@@ -226,15 +289,29 @@ const CategoryPage = () => {
                             </div>
                         ))}
                     </div>
-                ) : error ? (
+                ) : productError ? (
                     <div className="text-center p-10 bg-white rounded-lg shadow">
-                        <div className="text-red-500 text-xl mb-4">{error}</div>
-                        <button
-                            onClick={loadProducts}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                        >
-                            Tentar Novamente
-                        </button>
+                        <div className="text-red-500 text-xl mb-4">
+                            <FaExclamationTriangle className="inline-block mr-2" />
+                            {productError}
+                        </div>
+                        <p className="mb-4 text-gray-600">
+                            Não foi possível carregar os produtos. O servidor pode estar inacessível ou os dados para esta categoria podem não existir.
+                        </p>
+                        <div className="flex flex-col sm:flex-row justify-center gap-4">
+                            <button
+                                onClick={loadProducts}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                            >
+                                Tentar Novamente
+                            </button>
+                            <button
+                                onClick={() => navigate('/')}
+                                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                            >
+                                Voltar para Início
+                            </button>
+                        </div>
                     </div>
                 ) : products.length > 0 ? (
                     <div>

@@ -188,12 +188,12 @@ app.get(['/products/showcase', '/api/products/showcase'], async (req, res) => {
   }
 });
 
-// Get products endpoint - Add this to match frontend expectations
+// Get products endpoint 
 app.get(['/products', '/api/products'], async (req, res) => {
   try {
     const db = await openDb();
     
-    // Get parameters from request - set limit muito alto para mostrar todos os produtos
+    // Get parameters from request
     const limit = parseInt(req.query.limit) || 1000;
     const page = parseInt(req.query.page) || 1;
     const offset = (page - 1) * limit;
@@ -207,11 +207,30 @@ app.get(['/products', '/api/products'], async (req, res) => {
       params.push(req.query.category);
     }
     
-    // Build the SQL query with pagination
+    // Mapeamento de IDs de categoria para nomes baseado no frontend
+    const categoryNameMap = {
+      '100001': 'Eletrônicos',
+      '100006': 'Celulares',
+      '100018': 'Moda Feminina',
+      '100019': 'Moda Masculina',
+      '100039': 'Casa e Decoração',
+      '100040': 'Bebês e Crianças',
+      '100041': 'Beleza',
+      '100042': 'Esporte e Lazer',
+      '100048': 'Games',
+      '100049': 'Automotivo',
+      '100050': 'Ferramentas',
+      '100051': 'Áudio',
+      '100052': 'Fotografia',
+      '100053': 'Cozinha',
+      '100054': 'Livros'
+    };
+    
+    // Build SQL query with pagination (sem coluna category_name)
     const sql = `
       SELECT 
         id, shopee_id, name AS product_name, price, original_price,
-        image_url, shop_name, shop_id, commission_rate, category_id, category_name,
+        image_url, shop_name, shop_id, commission_rate, category_id,
         offer_link, rating_star, price_discount_rate, sales
       FROM products 
       ${whereClause}
@@ -222,7 +241,7 @@ app.get(['/products', '/api/products'], async (req, res) => {
     // Add pagination parameters
     params.push(limit, offset);
     
-    // Get total count for pagination info
+    // Get count first
     db.get(`SELECT COUNT(*) as total FROM products ${whereClause}`, params.slice(0, -2), (countErr, countRow) => {
       if (countErr) {
         console.error(`Database error counting products: ${countErr.message}`);
@@ -232,7 +251,7 @@ app.get(['/products', '/api/products'], async (req, res) => {
         });
       }
       
-      // Now get the actual products
+      // Get products
       db.all(sql, params, (err, products) => {
         db.close();
         
@@ -243,9 +262,15 @@ app.get(['/products', '/api/products'], async (req, res) => {
           });
         }
         
-        // Calculate additional fields for each product
+        // Adicionar campos calculados em cada produto
         products.forEach(product => {
-          // Calculate discount percentage
+          // Adicionar nome da categoria com base no mapeamento
+          if (product.category_id) {
+            const categoryId = String(product.category_id);
+            product.category_name = categoryNameMap[categoryId] || `Categoria ${categoryId}`;
+          }
+          
+          // Calcular porcentagem de desconto
           if (product.original_price && product.price) {
             const discount = Math.round(100 - (product.price / product.original_price * 100));
             product.discount_percent = discount > 0 ? discount : 0;
@@ -253,12 +278,12 @@ app.get(['/products', '/api/products'], async (req, res) => {
             product.discount_percent = 0;
           }
           
-          // Format price
+          // Formatar preço
           if ('price' in product) {
             product.formatted_price = `R$ ${product.price.toFixed(2)}`.replace('.', ',');
           }
           
-          // Convert commission to percentage
+          // Converter comissão para porcentagem
           if ('commission_rate' in product) {
             product.commission_percent = Math.round(product.commission_rate * 100 * 10) / 10;
           }
@@ -287,27 +312,58 @@ app.get(['/products', '/api/products'], async (req, res) => {
 app.get(['/categories', '/api/categories'], async (req, res) => {
   try {
     const db = await openDb();
+    
+    // Mapeamento de IDs de categoria para nomes baseado no frontend
+    const categoryNameMap = {
+      '100001': 'Eletrônicos',
+      '100006': 'Celulares',
+      '100018': 'Moda Feminina',
+      '100019': 'Moda Masculina',
+      '100039': 'Casa e Decoração',
+      '100040': 'Bebês e Crianças',
+      '100041': 'Beleza',
+      '100042': 'Esporte e Lazer',
+      '100048': 'Games',
+      '100049': 'Automotivo',
+      '100050': 'Ferramentas',
+      '100051': 'Áudio',
+      '100052': 'Fotografia',
+      '100053': 'Cozinha',
+      '100054': 'Livros'
+    };
+    
+    // Consultar apenas os category_id distintos do banco
     db.all(
-      `SELECT DISTINCT category_id as id, category_name as name
+      `SELECT DISTINCT category_id as id
        FROM products
-       WHERE category_id IS NOT NULL AND category_name IS NOT NULL
-       ORDER BY category_name`, 
+       WHERE category_id IS NOT NULL
+       ORDER BY category_id`, 
       [], 
       (err, categories) => {
         db.close();
         
         if (err) {
+          console.error(`Database error in categories: ${err.message}`);
           return res.status(500).json({ error: err.message });
         }
         
-        // Add default icon URLs for each category
-        categories.forEach(category => {
+        // Adicionar nomes de categorias com base no mapeamento
+        const categoriesWithNames = categories.map(category => {
+          const id = String(category.id);
+          return {
+            id: id,
+            name: categoryNameMap[id] || `Categoria ${id}` // Usar nome do mapa ou fallback
+          };
+        });
+        
+        // Adicionar URLs de imagens padrão para cada categoria
+        categoriesWithNames.forEach(category => {
           if (!category.image_url) {
-            category.image_url = `https://via.placeholder.com/64?text=${category.name}`;
+            category.image_url = `https://via.placeholder.com/64?text=${encodeURIComponent(category.name)}`;
           }
         });
         
-        res.json(categories);
+        res.json(categoriesWithNames);
       }
     );
   } catch (error) {
