@@ -3,29 +3,24 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
 import CategoryPage from './pages/CategoryPage';
 import Layout from './components/Layout';
+import { ThemeProvider } from './context/ThemeContext';
 
-import './styles/theme.css';
-import './styles/global.css';
+// Import only essential CSS
 import 'react-loading-skeleton/dist/skeleton.css';
 
-// Add future flags configuration
-const routerOptions = {
-    future: {
-        v7_startTransition: true,
-        v7_relativeSplatPath: true
-    }
-};
-
+// Configuração otimizada do roteador
 const App = () => {
     return (
-        <BrowserRouter {...routerOptions}>
-            <Layout>
-                <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/category/:id" element={<CategoryPage />} />
-                </Routes>
-            </Layout>
-        </BrowserRouter>
+        <ThemeProvider>
+            <BrowserRouter>
+                <Layout>
+                    <Routes>
+                        <Route path="/" element={<Home />} />
+                        <Route path="/category/:categoryId" element={<CategoryPage />} />
+                    </Routes>
+                </Layout>
+            </BrowserRouter>
+        </ThemeProvider>
     );
 };
 

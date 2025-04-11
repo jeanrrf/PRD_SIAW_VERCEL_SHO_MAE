@@ -1,251 +1,400 @@
 // src/api/connector.js
 
-// Update API base URL to use port 3000 where the backend is actually running
 export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
-// Add connection logging
-console.log('🔌 Frontend API connector initialized');
-console.log(`🌐 API Base URL: ${API_BASE_URL}`);
-console.log(`📡 Frontend attempting to connect to backend at: ${API_BASE_URL}`);
+// Dados de fallback para quando a API não estiver disponível
+const FALLBACK_CATEGORIES = [
+  { id: '1', name: 'Eletrônicos', product_count: 120 },
+  { id: '2', name: 'Moda', product_count: 85 },
+  { id: '3', name: 'Casa & Decoração', product_count: 67 },
+  { id: '4', name: 'Beleza & Saúde', product_count: 53 },
+  { id: '5', name: 'Esportes', product_count: 42 },
+  { id: '6', name: 'Livros', product_count: 38 },
+  { id: '7', name: 'Brinquedos', product_count: 31 },
+  { id: '8', name: 'Alimentos', product_count: 25 },
+  { id: 'all', name: 'Todos os Produtos', product_count: 461 }
+];
 
-// Add connection state tracking
-let isConnected = false;
-let connectionCheckPromise = null;
+const FALLBACK_PRODUCTS = [
+  { 
+    id: 'fb1', 
+    product_name: 'Smartphone Avançado XYZ', 
+    price: 1299.90, 
+    image_url: 'https://via.placeholder.com/300x300?text=Smartphone',
+    rating_star: 4.5,
+    shop_name: 'Tech Store',
+    offer_link: 'https://shopee.com.br'
+  },
+  { 
+    id: 'fb2', 
+    product_name: 'Fone de Ouvido Sem Fio', 
+    price: 199.90, 
+    image_url: 'https://via.placeholder.com/300x300?text=Fone',
+    rating_star: 4.2,
+    shop_name: 'Audio Shop',
+    offer_link: 'https://shopee.com.br'
+  },
+  { 
+    id: 'fb3', 
+    product_name: 'Notebook Ultrafino 15"', 
+    price: 3499.90, 
+    image_url: 'https://via.placeholder.com/300x300?text=Notebook',
+    rating_star: 4.7,
+    shop_name: 'Informática Plus',
+    offer_link: 'https://shopee.com.br'
+  },
+  { 
+    id: 'fb4', 
+    product_name: 'Câmera Digital Profissional', 
+    price: 2199.90, 
+    image_url: 'https://via.placeholder.com/300x300?text=Camera',
+    rating_star: 4.6,
+    shop_name: 'Foto & Vídeo',
+    offer_link: 'https://shopee.com.br'
+  }
+];
 
+// Cache para requisições recentes
+const requestCache = new Map();
+const CACHE_DURATION = 120 * 1000; // 2 minutos de cache (aumentado para reduzir tentativas frequentes)
+
+// Estado de conectividade
+let isConnected = true; // Assume connected initially to avoid immediate fallback
+let isDatabaseAvailable = true;
+let connectionFailures = 0;
+const MAX_FAILURES = 2; // Reduzido para 2 falhas para usar fallback mais rapidamente
+let lastConnectionAttempt = 0;
+const CONNECTION_ATTEMPT_THRESHOLD = 10000; // 10 segundos entre verificações de conexão
+
+// Função otimizada para verificar conexão
 const checkConnection = async () => {
-    console.log(`🔍 Checking API connection to: ${API_BASE_URL}/health`);
-    if (connectionCheckPromise) return connectionCheckPromise;
-
-    connectionCheckPromise = (async () => {
-        try {
-            console.log('📤 Sending health check request...');
-            const response = await fetch(`${API_BASE_URL}/health`, {
-                method: 'GET',
-                headers: { 'Accept': 'application/json' },
-            });
-            isConnected = response.ok;
-            console.log(`✅ API connection ${isConnected ? 'successful' : 'failed'}`);
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('📊 API Health Data:', data);
-                console.log(`🔌 Backend is running on port: ${new URL(API_BASE_URL).port || '(default)'}`);
-            }
-            
-            return isConnected;
-        } catch (error) {
-            console.error('❌ API connection check failed:', error);
-            console.error(`❗ Failed to connect to ${API_BASE_URL}/health`);
-            isConnected = false;
-            return false;
-        } finally {
-            setTimeout(() => { connectionCheckPromise = null; }, 5000);
-        }
-    })();
-
-    return connectionCheckPromise;
-};
-
-// Add database state tracking with improved logging
-let isDatabaseAvailable = false;
-let dbCheckPromise = null;
-
-const checkDatabaseAvailability = async () => {
-    console.log('🔍 Checking database availability...');
-    if (dbCheckPromise) return dbCheckPromise;
-
-    dbCheckPromise = (async () => {
-        try {
-            const response = await fetch(`${API_BASE_URL}/health`, {
-                method: 'GET',
-                headers: { 'Accept': 'application/json' },
-                timeout: 5000
-            });
-            
+    // Evita verificações excessivas em curto período
+    const now = Date.now();
+    if (now - lastConnectionAttempt < CONNECTION_ATTEMPT_THRESHOLD) {
+        return isConnected;
+    }
+    
+    lastConnectionAttempt = now;
+    
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        
+        const response = await fetch(`${API_BASE_URL}/health`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
             const data = await response.json();
+            isConnected = true;
             isDatabaseAvailable = data.database_status === 'connected';
-            console.log(`💾 Database ${isDatabaseAvailable ? 'is' : 'is NOT'} available`);
-            if (data.database_path) {
-                console.log(`📁 Database path: ${data.database_path}`);
-            }
-            return isDatabaseAvailable;
-        } catch (error) {
-            console.error('❌ Database check failed:', error);
-            isDatabaseAvailable = false;
-            return false;
-        } finally {
-            setTimeout(() => { dbCheckPromise = null; }, 5000);
+            connectionFailures = 0; // Reseta contador em caso de sucesso
+        } else {
+            connectionFailures++;
+            console.warn(`API Health check failed with status: ${response.status}`);
         }
-    })();
-
-    return dbCheckPromise;
+        
+        return isConnected;
+    } catch (error) {
+        // Não registra erros de timeout ou abort no console para reduzir ruído
+        if (error.name !== 'AbortError') {
+            console.warn('API Health check failed silently, using fallback data');
+        }
+        
+        connectionFailures++;
+        isConnected = false;
+        return false;
+    }
 };
 
-// Add retry wrapper with enhanced logging
-const fetchWithRetry = async (url, options = {}, retries = 3) => {
-    console.log(`🔄 Fetching with retry: ${url}`);
+// Verificar se deve usar dados de fallback
+const shouldUseFallback = () => {
+    return connectionFailures >= MAX_FAILURES || !isConnected;
+};
+
+// Cache simplificado
+const getCacheKey = (url, options = {}) => {
+    const method = options.method || 'GET';
+    const body = options.body ? JSON.stringify(options.body) : '';
+    return `${method}:${url}:${body}`;
+};
+
+// Verificar cache com suporte para resposta negativa cacheada
+const getFromCache = (cacheKey) => {
+    if (requestCache.has(cacheKey)) {
+        const { data, timestamp, isFallback } = requestCache.get(cacheKey);
+        
+        // Se estamos usando dados de fallback, podemos manter o cache por mais tempo
+        const cacheDuration = isFallback ? CACHE_DURATION * 3 : CACHE_DURATION;
+        
+        if (Date.now() - timestamp < cacheDuration) {
+            return { data, isFallback };
+        }
+        
+        requestCache.delete(cacheKey);
+    }
+    return null;
+};
+
+// Fetch otimizado com retry e supressão de erro de console
+const fetchWithRetry = async (url, options = {}, retries = 1, useCache = true) => {
+    const cacheKey = getCacheKey(url, options);
+    
+    // Tenta recuperar do cache primeiro
+    if (useCache) {
+        const cachedResult = getFromCache(cacheKey);
+        if (cachedResult) {
+            return cachedResult.data;
+        }
+    }
+    
+    // Verifica conexão se necessário
+    if (connectionFailures > 0) {
+        await checkConnection();
+        
+        // Se ainda deve usar fallback após a verificação, lança um erro silencioso
+        if (shouldUseFallback()) {
+            throw new Error('Using fallback due to connection issues');
+        }
+    }
+    
     let lastError;
     
-    for (let i = 0; i < retries; i++) {
+    for (let i = 0; i <= retries; i++) {
         try {
-            if (i > 0) {
-                console.log(`⚠️ Retry attempt ${i+1}/${retries} for: ${url}`);
-            }
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
             
-            // Check both API and database connectivity
-            if (!isConnected || !isDatabaseAvailable) {
-                console.log('🔌 Connection check required before request');
-                await Promise.all([checkConnection(), checkDatabaseAvailability()]);
-                if (!isConnected) {
-                    throw new Error('API indisponível');
-                }
-                if (!isDatabaseAvailable) {
-                    throw new Error('Banco de dados indisponível');
-                }
-            }
-
-            console.log(`📤 Sending request to: ${url}`);
             const response = await fetch(url, {
                 ...options,
                 headers: {
                     'Accept': 'application/json',
                     ...options.headers
                 },
-                timeout: 5000
+                signal: controller.signal
             });
-
+            
+            clearTimeout(timeoutId);
+            
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-
-            console.log(`✅ Request successful: ${url}`);
-            return response;
-        } catch (error) {
-            console.error(`❌ Request failed (attempt ${i+1}/${retries}):`, error);
-            lastError = error;
-            if (i === retries - 1) break;
             
-            // Exponential backoff
-            const backoffTime = Math.min(1000 * Math.pow(2, i), 5000);
-            console.log(`⏱️ Backing off for ${backoffTime}ms before retry`);
+            const data = await response.json();
+            
+            // Resetar contador de falhas em caso de sucesso
+            connectionFailures = 0;
+            
+            // Cache do resultado
+            if (useCache) {
+                requestCache.set(cacheKey, {
+                    data,
+                    timestamp: Date.now(),
+                    isFallback: false
+                });
+            }
+            
+            return data;
+        } catch (error) {
+            lastError = error;
+            connectionFailures++;
+            
+            // Se for o último retry, não espera e sai do loop
+            if (i === retries) break;
+            
+            // Implementa backoff exponencial limitado
+            const backoffTime = Math.min(1000 * Math.pow(2, i), 3000);
             await new Promise(resolve => setTimeout(resolve, backoffTime));
         }
     }
     
-    throw lastError;
+    // Usar fallback e cache negativo
+    return Promise.reject(lastError);
 };
 
-// Update existing fetch functions to use retry wrapper
+// Limpar cache periodicamente para evitar consumo de memória
+setInterval(() => {
+    const now = Date.now();
+    let count = 0;
+    
+    for (const [key, { timestamp, isFallback }] of requestCache.entries()) {
+        // Tempo de expiração dinâmico baseado no tipo de cache
+        const expirationTime = isFallback ? CACHE_DURATION * 3 : CACHE_DURATION;
+        
+        if (now - timestamp > expirationTime) {
+            requestCache.delete(key);
+            count++;
+        }
+    }
+    
+    // Se muitas entradas foram limpas, registra isso (útil para debug)
+    if (count > 10) {
+        console.debug(`Cache limpeza: ${count} entradas removidas`);
+    }
+}, CACHE_DURATION);
+
+// API functions
 export const fetchProducts = async (categoryId = null, page = 1, filters = {}) => {
     try {
+        // Se várias falhas consecutivas, retorna dados de fallback imediatamente
+        if (shouldUseFallback()) {
+            // Cache negativo para evitar tentativas repetidas
+            const cacheKey = getCacheKey(`${API_BASE_URL}/products?fallback=true`);
+            requestCache.set(cacheKey, {
+                data: {
+                    products: FALLBACK_PRODUCTS,
+                    total: FALLBACK_PRODUCTS.length,
+                    isUsingFallback: true
+                },
+                timestamp: Date.now(),
+                isFallback: true
+            });
+            
+            return {
+                products: FALLBACK_PRODUCTS,
+                total: FALLBACK_PRODUCTS.length,
+                isUsingFallback: true
+            };
+        }
+
         const params = new URLSearchParams({
             page: page.toString(),
-            limit: '2000', // Aumentar para mostrar todos os produtos
-            ...(categoryId && { category: categoryId }), // Certifique-se de que o categoryId está sendo enviado
+            limit: '40', // Limitado a 40 por página para melhor desempenho
+            ...(categoryId && { category: categoryId }),
             ...(filters.sort && { sort: filters.sort }),
             ...(filters.priceRange && { price_range: filters.priceRange }),
             ...(filters.searchTerm && { search: filters.searchTerm })
         });
-
-        const response = await fetchWithRetry(`${API_BASE_URL}/products?${params}`);
-        const data = await response.json();
-
-        if (!response.ok) {
-            console.error('API Error Response:', data);
-            throw new Error(data.detail || 'Erro ao carregar produtos');
-        }
-
+        
+        const url = `${API_BASE_URL}/products?${params}`;
+        const data = await fetchWithRetry(url, {}, 1, true);
+        
         return {
-            products: data.products,
-            hasMore: false,
-            total: data.total || 0
+            products: data.products || [],
+            total: data.total || 0,
+            isUsingFallback: false
         };
     } catch (error) {
-        console.error('Error in fetchProducts:', error);
-        throw new Error(error.message || 'Erro ao conectar com o servidor');
+        // Não loga o erro no console para reduzir ruído
+        // Cache negativo para evitar tentativas repetidas
+        const cacheKey = getCacheKey(`${API_BASE_URL}/products?fallback=true`);
+        requestCache.set(cacheKey, {
+            data: {
+                products: FALLBACK_PRODUCTS,
+                total: FALLBACK_PRODUCTS.length,
+                isUsingFallback: true
+            },
+            timestamp: Date.now(),
+            isFallback: true
+        });
+        
+        return {
+            products: FALLBACK_PRODUCTS,
+            total: FALLBACK_PRODUCTS.length,
+            isUsingFallback: true
+        };
     }
 };
 
 export const fetchCategories = async () => {
-    return fetchWithRetry(`${API_BASE_URL}/categories`).then(res => res.json());
+    try {
+        // Se várias falhas consecutivas, retorna categorias de fallback imediatamente
+        if (shouldUseFallback()) {
+            // Cache negativo para evitar tentativas repetidas
+            const cacheKey = getCacheKey(`${API_BASE_URL}/categories?fallback=true`);
+            requestCache.set(cacheKey, {
+                data: FALLBACK_CATEGORIES,
+                timestamp: Date.now(),
+                isFallback: true
+            });
+            
+            return FALLBACK_CATEGORIES;
+        }
+
+        const data = await fetchWithRetry(`${API_BASE_URL}/categories`, { method: 'GET' }, 1, true);
+        return data || [];
+    } catch (error) {
+        // Cache negativo para evitar tentativas repetidas
+        const cacheKey = getCacheKey(`${API_BASE_URL}/categories?fallback=true`);
+        requestCache.set(cacheKey, {
+            data: FALLBACK_CATEGORIES,
+            timestamp: Date.now(),
+            isFallback: true
+        });
+        
+        return FALLBACK_CATEGORIES; // Retorna categorias de fallback em caso de erro
+    }
 };
 
-// Update fetchCategoryCounts to use new fetch wrapper
 export const fetchCategoryCounts = async () => {
     try {
-        const response = await fetchWithRetry(`${API_BASE_URL}/categories/counts`);
-        const data = await response.json();
+        if (shouldUseFallback()) {
+            const counts = {};
+            FALLBACK_CATEGORIES.forEach(cat => {
+                counts[cat.id] = cat.product_count;
+            });
+            
+            // Cache negativo para evitar tentativas repetidas
+            const cacheKey = getCacheKey(`${API_BASE_URL}/categories/counts?fallback=true`);
+            requestCache.set(cacheKey, {
+                data: counts,
+                timestamp: Date.now(),
+                isFallback: true
+            });
+            
+            return counts;
+        }
+
+        const data = await fetchWithRetry(`${API_BASE_URL}/categories/counts`, {}, 1, true);
         return data.counts || {};
     } catch (error) {
-        console.error('Error fetching category counts:', error);
-        throw new Error('Falha ao conectar com o servidor. Verifique sua conexão e tente novamente.');
-    }
-};
-
-export const checkApiHealth = async () => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/health`);
-        if (!response.ok) {
-            throw new Error('API health check failed');
-        }
-        return await response.json();
-    } catch (error) {
-        console.error('API health check error:', error);
-        throw error;
-    }
-};
-
-export const fetchShowcaseProducts = async (limit = 24) => {
-    try {
-        const response = await fetchWithRetry(`${API_BASE_URL}/products/showcase?limit=${limit}`, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-            }
+        // Preparar dados de fallback
+        const counts = {};
+        FALLBACK_CATEGORIES.forEach(cat => {
+            counts[cat.id] = cat.product_count;
         });
-
-        const data = await response.json();
         
-        if (!response.ok) {
-            throw new Error(data.detail || 'Erro ao carregar produtos em destaque');
+        // Cache negativo para evitar tentativas repetidas
+        const cacheKey = getCacheKey(`${API_BASE_URL}/categories/counts?fallback=true`);
+        requestCache.set(cacheKey, {
+            data: counts,
+            timestamp: Date.now(),
+            isFallback: true
+        });
+        
+        return counts;
+    }
+};
+
+export const fetchShowcaseProducts = async (limit = 12) => {
+    try {
+        if (shouldUseFallback()) {
+            // Cache negativo para evitar tentativas repetidas
+            const cacheKey = getCacheKey(`${API_BASE_URL}/products/showcase?fallback=true`);
+            requestCache.set(cacheKey, {
+                data: FALLBACK_PRODUCTS,
+                timestamp: Date.now(),
+                isFallback: true
+            });
+            
+            return FALLBACK_PRODUCTS;
         }
 
+        const data = await fetchWithRetry(`${API_BASE_URL}/products/showcase?limit=${limit}`, { method: 'GET' }, 1, true);
         return data.products || [];
     } catch (error) {
-        console.error('Error fetching showcase products:', error);
-        throw new Error('Falha ao carregar produtos em destaque. Por favor, verifique a conexão.');
-    }
-};
-
-// Add caching for database checks
-let dbCheckCache = null;
-let lastCheckTime = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-// Update checkDatabaseConnection
-export const checkDatabaseConnection = async () => {
-    if (!await checkDatabaseAvailability()) {
-        throw new Error('Banco de dados indisponível');
-    }
-    
-    const now = Date.now();
-    if (dbCheckCache && (now - lastCheckTime < CACHE_DURATION)) {
-        return dbCheckCache;
-    }
-
-    try {
-        const response = await fetchWithRetry(`${API_BASE_URL}/debug/database`);
-        const data = await response.json();
+        // Cache negativo para evitar tentativas repetidas
+        const cacheKey = getCacheKey(`${API_BASE_URL}/products/showcase?fallback=true`);
+        requestCache.set(cacheKey, {
+            data: FALLBACK_PRODUCTS,
+            timestamp: Date.now(),
+            isFallback: true
+        });
         
-        if (!data.database_exists) {
-            throw new Error('Banco de dados não encontrado');
-        }
-        
-        dbCheckCache = data;
-        lastCheckTime = now;
-        return data;
-    } catch (error) {
-        console.error('Database check failed:', error);
-        throw new Error('Não foi possível verificar a conexão com o banco de dados.');
+        return FALLBACK_PRODUCTS;
     }
 };

@@ -1,106 +1,181 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { 
-    FaLaptop, FaMobile, FaTshirt, FaUserTie, FaHome, 
-    FaBaby, FaSprayCan, FaRunning, FaGamepad, FaCar, 
-    FaTools, FaHeadphones, FaCamera, FaUtensils, FaBookOpen 
-} from 'react-icons/fa';
-
-// Categorias modernizadas com ícones mais apropriados
-const categoriesData = [
-    { id: '100001', name: 'Eletrônicos', icon: FaLaptop, color: '#4299e1' },
-    { id: '100006', name: 'Celulares', icon: FaMobile, color: '#38b2ac' },
-    { id: '100018', name: 'Moda Feminina', icon: FaTshirt, color: '#ed64a6' },
-    { id: '100019', name: 'Moda Masculina', icon: FaUserTie, color: '#667eea' },
-    { id: '100039', name: 'Casa e Decoração', icon: FaHome, color: '#f6ad55' },
-    { id: '100040', name: 'Bebês e Crianças', icon: FaBaby, color: '#fc8181' },
-    { id: '100041', name: 'Beleza', icon: FaSprayCan, color: '#f687b3' },
-    { id: '100042', name: 'Esporte e Lazer', icon: FaRunning, color: '#68d391' },
-    { id: '100048', name: 'Games', icon: FaGamepad, color: '#805ad5' },
-    { id: '100049', name: 'Automotivo', icon: FaCar, color: '#e53e3e' },
-    { id: '100050', name: 'Ferramentas', icon: FaTools, color: '#718096' },
-    { id: '100051', name: 'Áudio', icon: FaHeadphones, color: '#d53f8c' },
-    { id: '100052', name: 'Fotografia', icon: FaCamera, color: '#2b6cb0' },
-    { id: '100053', name: 'Cozinha', icon: FaUtensils, color: '#dd6b20' },
-    { id: '100054', name: 'Livros', icon: FaBookOpen, color: '#9f7aea' },
-];
+import { fetchCategories } from '../api/connector';
+import CategoryCard from './CategoryCard';
 
 const Categories = () => {
     const navigate = useNavigate();
     const [categories, setCategories] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Use o useEffect para inicializar as categorias diretamente
     useEffect(() => {
-        // Usar diretamente as categorias pré-definidas
-        setCategories(categoriesData);
+        const loadCategories = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const data = await fetchCategories();
+                // Only take top 8 categories for better performance
+                setCategories(data.slice(0, 8));
+                setLoading(false);
+            } catch (err) {
+                console.error('Error loading categories:', err);
+                setError(err.message || 'Failed to load categories');
+                setLoading(false);
+            }
+        };
+        
+        loadCategories();
     }, []);
 
     const handleCategoryClick = (categoryId) => {
         navigate(`/category/${categoryId}`);
     };
 
-    const handleSeeAllClick = () => {
-        navigate('/category/all');
-    };
-
     return (
-        <section id="categorias" className="py-16 bg-gradient-to-b from-white to-gray-50">
-            <div className="container mx-auto px-4">
-                <div className="flex flex-col md:flex-row justify-between items-center mb-10">
-                    <h2 className="text-3xl font-bold mb-4 md:mb-0 relative">
-                        <span className="relative">
-                            Navegue por Categorias
-                            <span className="absolute -bottom-2 left-0 w-2/3 h-1 bg-blue-500"></span>
-                        </span>
-                    </h2>
-
+        <section className="category-section">
+            <div className="container">
+                <div className="section-header">
+                    <h2 className="section-title">Navegue por Categorias</h2>
                     <button 
-                        onClick={handleSeeAllClick}
-                        className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors flex items-center"
+                        className="see-all-btn"
+                        onClick={() => navigate('/category/all')}
                     >
                         Ver Todas as Categorias
                     </button>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                    {loading ? (
-                        // Esqueletos de carregamento
-                        Array(12).fill(0).map((_, index) => (
-                            <div key={index} className="animate-pulse bg-white rounded-lg shadow p-6 flex flex-col items-center">
-                                <div className="w-16 h-16 mb-4 rounded-full bg-gray-200"></div>
-                                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                {loading ? (
+                    <div className="category-grid">
+                        {[...Array(8)].map((_, index) => (
+                            <div key={index} className="skeleton-card">
+                                <div className="skeleton-image"></div>
+                                <div className="skeleton-title"></div>
+                                <div className="skeleton-count"></div>
                             </div>
-                        ))
-                    ) : (
-                        // Cartões de categorias com animação
-                        categories.map((category, index) => (
-                            <motion.div 
-                                key={category.id} 
-                                className="bg-white rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer overflow-hidden"
-                                onClick={() => handleCategoryClick(category.id)}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.3, delay: index * 0.05 }}
-                                whileHover={{ scale: 1.03 }}
-                            >
-                                <div className="p-6 flex flex-col items-center text-center">
-                                    <div 
-                                        className="w-16 h-16 rounded-full flex items-center justify-center mb-3"
-                                        style={{ backgroundColor: `${category.color}15` }}
-                                    >
-                                        <category.icon size={32} style={{ color: category.color }} />
-                                    </div>
-                                    <h3 className="font-semibold mb-1 text-gray-800">{category.name}</h3>
-                                </div>
-                            </motion.div>
-                        ))
-                    )}
-                </div>
+                        ))}
+                    </div>
+                ) : error ? (
+                    <div className="error-message">
+                        <p>{error}</p>
+                        <button onClick={() => window.location.reload()}>
+                            Tentar novamente
+                        </button>
+                    </div>
+                ) : (
+                    <div className="category-grid">
+                        {categories.map((category) => (
+                            <CategoryCard 
+                                key={category.id}
+                                category={category}
+                                onClick={handleCategoryClick}
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
+            
+            <style dangerouslySetInnerHTML={{__html: `
+                .category-section {
+                    padding: 60px 0;
+                    background: linear-gradient(to bottom, #ffffff, #f8fafc);
+                }
+                .container {
+                    width: 100%;
+                    max-width: 1200px;
+                    margin: 0 auto;
+                    padding: 0 20px;
+                }
+                .section-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 30px;
+                    flex-wrap: wrap;
+                }
+                .section-title {
+                    font-size: 28px;
+                    font-weight: bold;
+                    position: relative;
+                    margin-bottom: 10px;
+                }
+                .section-title::after {
+                    content: '';
+                    position: absolute;
+                    left: 0;
+                    bottom: -8px;
+                    width: 60px;
+                    height: 4px;
+                    background-color: #3b82f6;
+                }
+                .see-all-btn {
+                    background-color: #3b82f6;
+                    color: white;
+                    border: none;
+                    border-radius: 25px;
+                    padding: 10px 20px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+                .see-all-btn:hover {
+                    background-color: #2563eb;
+                }
+                .category-grid {
+                    display: grid;
+                    grid-template-columns: repeat(1, 1fr);
+                    gap: 20px;
+                }
+                @media (min-width: 480px) { .category-grid { grid-template-columns: repeat(2, 1fr); } }
+                @media (min-width: 768px) { .category-grid { grid-template-columns: repeat(3, 1fr); } }
+                @media (min-width: 992px) { .category-grid { grid-template-columns: repeat(4, 1fr); } }
+                
+                .skeleton-card {
+                    background: white;
+                    border-radius: 12px;
+                    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+                    overflow: hidden;
+                    height: 100%;
+                    animation: pulse 1.5s infinite ease-in-out;
+                }
+                .skeleton-image {
+                    width: 100%;
+                    padding-top: 60%;
+                    background-color: #f1f5f9;
+                }
+                .skeleton-title {
+                    height: 20px;
+                    width: 70%;
+                    margin: 16px;
+                    background-color: #f1f5f9;
+                    border-radius: 4px;
+                }
+                .skeleton-count {
+                    height: 14px;
+                    width: 40%;
+                    margin: 0 16px 16px;
+                    background-color: #f1f5f9;
+                    border-radius: 4px;
+                }
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.7; }
+                }
+                .error-message {
+                    text-align: center;
+                    padding: 20px;
+                    color: #ef4444;
+                }
+                .error-message button {
+                    margin-top: 10px;
+                    background-color: #3b82f6;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 8px 16px;
+                    cursor: pointer;
+                }
+            `}} />
         </section>
     );
 };

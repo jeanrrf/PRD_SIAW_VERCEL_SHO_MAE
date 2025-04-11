@@ -1,18 +1,26 @@
 import React from 'react';
-import styles from './Layout.module.css';
+import Header from './Header';
 
 const Layout = ({ children }) => {
+    // Estilos inline para o Layout
+    const styles = {
+        appLayout: {
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '100vh'
+        },
+        mainContent: {
+            flex: '1 1 auto',
+            paddingBottom: '2rem'
+        }
+    };
+
     return (
-        <div className={styles.layout}>
-            <header className={styles.header}>
-                {/* Header component will be included here */}
-            </header>
-            <main className={styles.main}>
+        <div style={styles.appLayout}>
+            <Header />
+            <main style={styles.mainContent}>
                 {children}
             </main>
-            <footer className={styles.footer}>
-                {/* Footer component will be included here */}
-            </footer>
         </div>
     );
 };

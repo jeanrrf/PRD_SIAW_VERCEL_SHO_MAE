@@ -1,57 +1,97 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { fetchProducts, fetchCategories } from '../api/connector';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { fetchCategories } from '../api/connector';
+import useProducts from '../hooks/useProducts';
 import ProductCard from '../components/ProductCard';
-import Layout from '../components/Layout';
-import { FaFilter, FaSort, FaSearch, FaChevronLeft, FaExclamationTriangle } from 'react-icons/fa';
+import { FaFilter, FaSearch, FaChevronLeft, FaExclamationTriangle } from 'react-icons/fa';
 
-// Fallback categories when API fails
+// Minimal fallback categories
 const fallbackCategories = [
-    { id: '100001', name: 'Eletrônicos' },
-    { id: '100006', name: 'Celulares' },
-    { id: '100018', name: 'Moda Feminina' },
-    { id: '100019', name: 'Moda Masculina' },
-    { id: '100039', name: 'Casa e Decoração' },
-    { id: '100040', name: 'Bebês e Crianças' },
-    { id: '100041', name: 'Beleza' },
-    { id: '100042', name: 'Esporte e Lazer' },
-    { id: '100048', name: 'Games' },
-    { id: '100049', name: 'Automotivo' },
-    { id: '100050', name: 'Ferramentas' },
-    { id: '100051', name: 'Áudio' },
-    { id: '100052', name: 'Fotografia' },
-    { id: '100053', name: 'Cozinha' },
-    { id: '100054', name: 'Livros' },
+    { id: 'all', name: 'Todos os Produtos', product_count: 0 }
 ];
 
 const CategoryPage = () => {
     const { categoryId } = useParams();
-    const location = useLocation();
     const navigate = useNavigate();
-    const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
     const [categoryName, setCategoryName] = useState('');
-    const [loading, setLoading] = useState(true);
     const [categoryError, setCategoryError] = useState(null);
-    const [productError, setProductError] = useState(null);
-    const [filters, setFilters] = useState({
-        sort: '',
-        priceRange: '',
-        searchTerm: ''
-    });
     const [showFilters, setShowFilters] = useState(false);
-    const [productCount, setProductCount] = useState(0);
     const [usingFallbackCategories, setUsingFallbackCategories] = useState(false);
+    const [filters, setFilters] = useState({ sort: '', priceRange: '', searchTerm: '' });
+    
+    // Usar o hook useProducts otimizado
+    const { 
+        products, 
+        loading: productsLoading, 
+        error: productsError, 
+        totalProducts: productCount,
+        refreshProducts
+    } = useProducts({
+        categoryId: categoryId === 'all' ? null : categoryId,
+        filters
+    });
+    
+    // Track initial loads
+    const initialCategoriesLoaded = useRef(false);
 
-    // Carregar todas as categorias para navegação
-    const loadCategories = useCallback(async () => {
+    // Load categories
+    useEffect(() => {
+        const loadCategories = async () => {
+            if (initialCategoriesLoaded.current) return;
+            
+            try {
+                setCategoryError(null);
+                const data = await fetchCategories();
+                
+                const sortedCategories = [...data].sort((a, b) => b.product_count - a.product_count);
+                setCategories(sortedCategories);
+                setUsingFallbackCategories(false);
+                
+                const currentCategory = sortedCategories.find(cat => cat.id === categoryId);
+                if (currentCategory) {
+                    setCategoryName(currentCategory.name);
+                } else if (categoryId === 'all') {
+                    setCategoryName('Todos os Produtos');
+                }
+                
+                initialCategoriesLoaded.current = true;
+            } catch (err) {
+                console.error('Erro ao carregar categorias:', err);
+                setCategoryError(err.message || 'Erro ao carregar categorias');
+                setCategories(fallbackCategories);
+                setUsingFallbackCategories(true);
+                setCategoryName(categoryId === 'all' ? 'Todos os Produtos' : 'Categoria');
+                initialCategoriesLoaded.current = true;
+            }
+        };
+
+        loadCategories();
+    }, [categoryId]);
+
+    // Atualizar o nome da categoria quando carregar produtos de uma categoria específica
+    useEffect(() => {
+        if (products.length > 0 && categoryId !== 'all' && !categoryName) {
+            const firstProduct = products[0];
+            if (firstProduct.CategoryName) {
+                setCategoryName(firstProduct.CategoryName);
+            }
+        }
+    }, [products, categoryId, categoryName]);
+
+    // Actions
+    const handleSearchSubmit = (e) => e.preventDefault();
+    const handleCategoryChange = (catId) => navigate(`/category/${catId}`);
+    const toggleFilters = () => setShowFilters(!showFilters);
+    const resetFilters = () => setFilters({ sort: '', priceRange: '', searchTerm: '' });
+    
+    const retryLoadCategories = async () => {
         try {
             setCategoryError(null);
             const data = await fetchCategories();
             setCategories(data);
             setUsingFallbackCategories(false);
             
-            // Encontrar nome da categoria atual
             const currentCategory = data.find(cat => cat.id === categoryId);
             if (currentCategory) {
                 setCategoryName(currentCategory.name);
@@ -59,78 +99,14 @@ const CategoryPage = () => {
                 setCategoryName('Todos os Produtos');
             }
         } catch (err) {
-            console.error('Erro ao carregar categorias:', err);
             setCategoryError(err.message || 'Erro ao carregar categorias');
-            
-            // Usar categorias de fallback locais
-            setCategories(fallbackCategories);
             setUsingFallbackCategories(true);
-            
-            // Definir o nome da categoria com base nas categorias de fallback
-            if (categoryId !== 'all') {
-                const fallbackCategory = fallbackCategories.find(cat => cat.id === categoryId);
-                if (fallbackCategory) {
-                    setCategoryName(fallbackCategory.name);
-                } else {
-                    setCategoryName('Categoria');
-                }
-            } else {
-                setCategoryName('Todos os Produtos');
-            }
         }
-    }, [categoryId]);
-
-    useEffect(() => {
-        loadCategories();
-    }, [loadCategories]);
-
-    const loadProducts = useCallback(async () => {
-        try {
-            setLoading(true);
-            setProductError(null);
-
-            // Certifique-se de que o categoryId está sendo passado corretamente
-            const data = await fetchProducts(categoryId === 'all' ? null : categoryId, 1, filters);
-            setProducts(data.products || []);
-            setProductCount(data.total || 0);
-        } catch (err) {
-            console.error('Error loading products:', err);
-            setProductError(err.message || 'Falha ao carregar produtos. Tente novamente mais tarde.');
-            setProducts([]);
-            setProductCount(0);
-        } finally {
-            setLoading(false);
-        }
-    }, [categoryId, filters]);
-
-    useEffect(() => {
-        loadProducts();
-    }, [loadProducts]);
-
-    const handleSearchSubmit = (e) => {
-        e.preventDefault();
-        // A pesquisa já será aplicada pelo useEffect quando filters mudar
-    };
-
-    const handleCategoryChange = (categoryId) => {
-        navigate(`/category/${categoryId}`);
-    };
-
-    const toggleFilters = () => {
-        setShowFilters(!showFilters);
-    };
-
-    const resetFilters = () => {
-        setFilters({
-            sort: '',
-            priceRange: '',
-            searchTerm: ''
-        });
     };
 
     return (
         <div className="bg-gray-50 min-h-screen">
-            {/* Header com nome da categoria e botão de voltar */}
+            {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white">
                 <div className="container mx-auto px-4 py-8">
                     <div className="flex items-center mb-2">
@@ -149,6 +125,7 @@ const CategoryPage = () => {
                 </div>
             </div>
 
+            {/* Fallback warning */}
             {usingFallbackCategories && (
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 m-4">
                     <div className="flex items-center">
@@ -160,7 +137,7 @@ const CategoryPage = () => {
                                 Usando dados locais devido a um erro de conexão com o servidor. Algumas funcionalidades podem estar limitadas.
                                 <button
                                     className="ml-2 font-medium text-yellow-700 underline"
-                                    onClick={loadCategories}
+                                    onClick={retryLoadCategories}
                                 >
                                     Tentar novamente
                                 </button>
@@ -171,7 +148,7 @@ const CategoryPage = () => {
             )}
 
             <div className="container mx-auto px-4 py-8">
-                {/* Menu de categorias */}
+                {/* Category Navigation */}
                 <div className="mb-8 overflow-x-auto">
                     <div className="flex space-x-2 pb-2 min-w-max">
                         <button
@@ -200,7 +177,7 @@ const CategoryPage = () => {
                     </div>
                 </div>
 
-                {/* Barra de filtros e pesquisa */}
+                {/* Filters */}
                 <div className="bg-white rounded-lg shadow mb-6">
                     <div className="p-4 border-b flex items-center justify-between">
                         <div className="flex items-center">
@@ -233,7 +210,7 @@ const CategoryPage = () => {
                         </form>
                     </div>
                     
-                    {/* Painel de filtros expansível */}
+                    {/* Expanded Filters */}
                     {showFilters && (
                         <div className="p-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -275,8 +252,8 @@ const CategoryPage = () => {
                     )}
                 </div>
 
-                {/* Conteúdo Principal */}
-                {loading ? (
+                {/* Content */}
+                {productsLoading ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
                         {Array(12).fill(0).map((_, index) => (
                             <div key={index} className="animate-pulse bg-white rounded-lg shadow overflow-hidden">
@@ -289,18 +266,18 @@ const CategoryPage = () => {
                             </div>
                         ))}
                     </div>
-                ) : productError ? (
+                ) : productsError ? (
                     <div className="text-center p-10 bg-white rounded-lg shadow">
                         <div className="text-red-500 text-xl mb-4">
                             <FaExclamationTriangle className="inline-block mr-2" />
-                            {productError}
+                            {productsError}
                         </div>
                         <p className="mb-4 text-gray-600">
                             Não foi possível carregar os produtos. O servidor pode estar inacessível ou os dados para esta categoria podem não existir.
                         </p>
                         <div className="flex flex-col sm:flex-row justify-center gap-4">
                             <button
-                                onClick={loadProducts}
+                                onClick={refreshProducts}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                             >
                                 Tentar Novamente
@@ -314,12 +291,10 @@ const CategoryPage = () => {
                         </div>
                     </div>
                 ) : products.length > 0 ? (
-                    <div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                            {products.map((product) => (
-                                <ProductCard key={product.id || product.shopee_id} product={product} />
-                            ))}
-                        </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+                        {products.map((product) => (
+                            <ProductCard key={product.id || product.shopee_id} product={product} />
+                        ))}
                     </div>
                 ) : (
                     <div className="text-center p-10 bg-white rounded-lg shadow">
